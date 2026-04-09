@@ -1,0 +1,10 @@
+node_modules/
+key/
+*.log
+.claude/
+.playwright-mcp/
+debug-*.js
+read-*.js
+test-*.js
+check-*.js
+count-*.js
