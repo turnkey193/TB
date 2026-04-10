@@ -417,7 +417,7 @@ export default function App() {
                         <Bar dataKey="業績" fill={C.gold} radius={[3, 3, 0, 0]} />
                       </BarChart></ResponsiveContainer></div>)}
                   <div style={{ overflow: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr>{['姓名','現況','簽約率','當月業績','達成率','累積業績','達成率'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <thead><tr>{['姓名','現況','簽約率','當月業績','當月業績達成率','累積業績','累積業績達成率'].map((h,i) => <TH key={i}>{h}</TH>)}</tr></thead>
                     <tbody>
                       {data.employees.map((e, i) => <TR key={i}><TD style={{ fontWeight: 700 }}>{e.name}</TD>
                         <TD><span style={{ ...font(700, 9), padding: '2px 8px', borderRadius: 2, background: e.status === '在職' ? C.mossLight : C.stone, color: e.status === '在職' ? C.moss : C.steel }}>{e.status}</span></TD>
