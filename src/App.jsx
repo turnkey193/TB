@@ -396,8 +396,8 @@ export default function App() {
                         </tbody></table></div>
                       <div style={{ flex: '1 1 260px', background: C.stone, borderRadius: 4, padding: 16 }}>
                         <ResponsiveContainer width="100%" height={200}>
-                          <BarChart data={data.signRateData.byPerson.map(x => ({ name: x.name, 簽約率: parseInt(x.rate) || 0 }))} layout="vertical" margin={{ left: 5, right: 15 }}>
-                            <XAxis type="number" domain={[0, 'auto']} tick={{ ...font(400, 9) }} unit="%" /><YAxis type="category" dataKey="name" tick={{ ...bodyFont(500, 11) }} width={65} />
+                          <BarChart data={data.signRateData.byPerson.map(x => ({ name: x.name, 簽約率: parseInt(x.rate) || 0 }))} layout="vertical" margin={{ left: 20, right: 15 }}>
+                            <XAxis type="number" domain={[0, 'auto']} tick={{ ...font(400, 9) }} unit="%" /><YAxis type="category" dataKey="name" tick={{ ...bodyFont(500, 11) }} width={85} />
                             <Tooltip content={<ChartTip />} /><Bar dataKey="簽約率" fill={C.gold} radius={[0, 3, 3, 0]} />
                           </BarChart></ResponsiveContainer></div>
                     </div></div>)}
