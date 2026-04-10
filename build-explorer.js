@@ -1,5 +1,51 @@
 const fs = require('fs');
-const data = fs.readFileSync('drive-tree-data.min.json', 'utf8');
+const path = require('path');
+const { google } = require('googleapis');
+
+const ROOT_FOLDER_ID = '1n-xgrDssMzoWKcAo8IYMfOQstG49SOiX';
+const KEY_FILE = path.join(__dirname, 'key/huaaibot-key.json');
+const OUTPUT_HTML = path.join(__dirname, '目錄.html');
+
+// ── Step 1: Scan Google Drive ──
+async function scanDrive() {
+  console.log('\\n  [1/2] 掃描 Google Drive 中...');
+  const auth = new google.auth.GoogleAuth({
+    keyFile: KEY_FILE,
+    scopes: ['https://www.googleapis.com/auth/drive.readonly']
+  });
+  const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+  const items = [];
+
+  async function listFolder(folderId, depth = 0, parentPath = '') {
+    let pageToken = null;
+    do {
+      const res = await drive.files.list({
+        q: "'" + folderId + "' in parents and trashed = false",
+        fields: 'nextPageToken, files(id, name, mimeType)',
+        orderBy: 'name',
+        pageSize: 200,
+        pageToken
+      });
+      for (const f of res.data.files) {
+        const filePath = parentPath ? parentPath + '/' + f.name : f.name;
+        const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+        items.push({ id: f.id, name: f.name, mimeType: f.mimeType, path: filePath, depth, isFolder, parentId: folderId });
+        if (isFolder) await listFolder(f.id, depth + 1, filePath);
+      }
+      pageToken = res.data.nextPageToken;
+    } while (pageToken);
+  }
+
+  await listFolder(ROOT_FOLDER_ID);
+  const folders = items.filter(i => i.isFolder).length;
+  console.log('       找到 ' + items.length + ' 個項目 (' + folders + ' 資料夾, ' + (items.length - folders) + ' 檔案)');
+  return items;
+}
+
+// ── Step 2: Build HTML ──
+function buildHtml(items) {
+  console.log('  [2/2] 產生 HTML...');
+  const data = JSON.stringify(items);
 
 const html = `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -860,5 +906,22 @@ document.getElementById('sidebarStats').textContent = allItems.length + ' items'
 </body>
 </html>`;
 
-fs.writeFileSync('drive-explorer.html', html);
-console.log('Done:', (html.length / 1024).toFixed(1) + ' KB');
+  fs.writeFileSync(OUTPUT_HTML, html);
+  console.log('       檔案大小: ' + (html.length / 1024).toFixed(1) + ' KB');
+  console.log('       輸出: ' + OUTPUT_HTML);
+}
+
+// ── Main ──
+(async () => {
+  console.log('\\n  ╔══════════════════════════════════════╗');
+  console.log('  ║  統包先生 Drive Explorer - 一鍵更新  ║');
+  console.log('  ╚══════════════════════════════════════╝');
+  try {
+    const items = await scanDrive();
+    buildHtml(items);
+    console.log('\\n  ✓ 更新完成！直接開啟 目錄.html 即可\\n');
+  } catch (err) {
+    console.error('\\n  ✗ 錯誤:', err.message, '\\n');
+    process.exit(1);
+  }
+})();
