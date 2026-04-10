@@ -6,6 +6,34 @@ const path = require('path');
 const app = express();
 app.use(cors());
 
+// 日期工具：解析 YYYY/M/D 或 YYYY-M-D，加上 N 工作天（跳過週六日），判斷是否超過
+function parseDate(str) {
+  if (!str) return null;
+  const s = String(str).trim().replace(/-/g, '/');
+  const m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return null;
+  const d = new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+  return isNaN(d.getTime()) ? null : d;
+}
+function addWorkingDays(date, days) {
+  const d = new Date(date);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const w = d.getDay();
+    if (w !== 0 && w !== 6) added++;
+  }
+  return d;
+}
+function isOverdue(baseStr, workDays) {
+  const base = parseDate(baseStr);
+  if (!base) return false;
+  const due = addWorkingDays(base, workDays);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today > due;
+}
+
 // 快取系統（5 分鐘）
 const CACHE_TTL = 5 * 60 * 1000;
 const cache = {};
@@ -169,17 +197,22 @@ app.get('/api/meeting/:region', async (req, res) => {
         const activeCases = caseRows.slice(1)
           .filter(row => get(row, colIdx.status) === '接洽中')
           .map(row => {
+            const fillDate = get(row, colIdx.fillDate);
             const measureDate = get(row, colIdx.measureDate);
             const frameDate = get(row, colIdx.frameDate);
             const planDate = get(row, colIdx.planDate);
             const quoteDate = get(row, colIdx.quoteDate);
 
-            // 判斷異常狀態
+            // 判斷異常狀態（依序檢查：到期才算異常）
+            // 1. 填單 +3 工作天沒丈量 → 丈量未約
+            // 2. 丈量 +2 工作天沒圖框 → 圖框未畫
+            // 3. 圖框 +2 工作天沒平面圖 → 平面圖未畫
+            // 4. 平面圖 +3 工作天沒報價 → 報價未約
             let abnormal = '';
-            if (!measureDate) abnormal = '丈量未約-異常';
-            else if (!frameDate) abnormal = '圖框未畫-異常';
-            else if (!planDate) abnormal = '平配未畫-異常';
-            else if (!quoteDate) abnormal = '報價面談未約-異常';
+            if (!measureDate && isOverdue(fillDate, 3)) abnormal = '丈量未約-異常';
+            else if (measureDate && !frameDate && isOverdue(measureDate, 2)) abnormal = '圖框未畫-異常';
+            else if (frameDate && !planDate && isOverdue(frameDate, 2)) abnormal = '平面圖未畫-異常';
+            else if (planDate && !quoteDate && isOverdue(planDate, 3)) abnormal = '報價未約-異常';
 
             return {
               id: get(row, colIdx.id),
