@@ -125,7 +125,7 @@ function Dashboard({ data }) {
 
       <div style={{ background: C.bone, borderRadius: 4, overflow: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr><TH>地區</TH><TH>年度目標</TH><TH>累積業績</TH><TH>達成率</TH><TH>簽約率</TH><TH>當月業績</TH><TH>當月達成率</TH></tr></thead>
+          <thead><tr><TH>地區</TH><TH>年度目標</TH><TH>累積業績</TH><TH>月累積達成率</TH><TH>簽約率</TH><TH>當月業績</TH><TH>當月達成率</TH></tr></thead>
           <tbody>
             {active.map((r, i) => {
               const rate = parseFloat(r.totalRate) || 0;
