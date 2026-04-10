@@ -485,7 +485,7 @@ app.get('/api/allregions', async (req, res) => {
 
 // 靜態檔案服務（前端 build 產物）
 app.use(express.static(path.join(__dirname, 'dist')));
-app.get('*', (req, res) => {
+app.get('/{*any}', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
