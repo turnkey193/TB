@@ -204,15 +204,21 @@ app.get('/api/meeting/:region', async (req, res) => {
             const quoteDate = get(row, colIdx.quoteDate);
 
             // 判斷異常狀態（依序檢查：到期才算異常）
-            // 1. 填單 +3 工作天沒丈量 → 丈量未約
-            // 2. 丈量 +2 工作天沒圖框 → 圖框未畫
-            // 3. 圖框 +2 工作天沒平面圖 → 平面圖未畫
-            // 4. 平面圖 +3 工作天沒報價 → 報價未約
+            // 標準流程：填單 → 丈量(+3) → 圖框(+2) → 平面圖(+2) → 報價(+3)
+            // 台中無圖框步驟：填單 → 丈量(+3) → 平面圖(+4) → 報價(+3)
+            const hasFrameCol = colIdx.frameDate >= 0;
             let abnormal = '';
-            if (!measureDate && isOverdue(fillDate, 3)) abnormal = '丈量未約-異常';
-            else if (measureDate && !frameDate && isOverdue(measureDate, 2)) abnormal = '圖框未畫-異常';
-            else if (frameDate && !planDate && isOverdue(frameDate, 2)) abnormal = '平面圖未畫-異常';
-            else if (planDate && !quoteDate && isOverdue(planDate, 3)) abnormal = '報價未約-異常';
+            if (!measureDate && isOverdue(fillDate, 3)) {
+              abnormal = '丈量未約-異常';
+            } else if (hasFrameCol && measureDate && !frameDate && isOverdue(measureDate, 2)) {
+              abnormal = '圖框未畫-異常';
+            } else if (hasFrameCol && frameDate && !planDate && isOverdue(frameDate, 2)) {
+              abnormal = '平面圖未畫-異常';
+            } else if (!hasFrameCol && measureDate && !planDate && isOverdue(measureDate, 4)) {
+              abnormal = '平面圖未畫-異常';
+            } else if (planDate && !quoteDate && isOverdue(planDate, 3)) {
+              abnormal = '報價未約-異常';
+            }
 
             return {
               id: get(row, colIdx.id),
