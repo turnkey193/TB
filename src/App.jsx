@@ -167,6 +167,7 @@ export default function App() {
   const [activeNav, setActiveNav] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const [perfView, setPerfView] = useState('region');
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [notes, setNotes] = useState([]);
   const [noteInput, setNoteInput] = useState({});   // { '客戶回饋': '', '廠商狀況': '', '支援項目': '' }
   const [paymentRec, setPaymentRec] = useState({}); // { case_no: { invoice_amount, received_amount } }
@@ -237,6 +238,12 @@ export default function App() {
     return () => obs.disconnect();
   }, [data, view]);
 
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   const p = data?.projects || [], cases = data?.cases || [], abnormal = data?.abnormalCases || [], stats = data?.stats || {};
   const working = p.filter(x => x.status === '施工中').length, pending = p.filter(x => x.status === '待驗收').length;
   const waiting = p.filter(x => x.status === '待開工').length;
@@ -259,31 +266,49 @@ export default function App() {
         * { margin:0; padding:0; box-sizing:border-box; }
         ::-webkit-scrollbar { width:6px; height:6px; } ::-webkit-scrollbar-thumb { background:${C.fog}; border-radius:3px; }
         table { border-spacing:0; }
+        .mobile-region-scroll::-webkit-scrollbar { display:none; }
+        .mobile-region-scroll { -ms-overflow-style:none; scrollbar-width:none; }
       `}</style>
 
       {/* ===== HEADER ===== */}
-      <header style={{ background: C.iron, padding: '0 24px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 200 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'none', border: 'none', color: C.fog, fontSize: 16, cursor: 'pointer', padding: 4, opacity: 0.6 }}>☰</button>
-          <div style={{ width: 3, height: 20, background: C.gold, borderRadius: 1 }} />
-          <span style={{ ...font(800, 18), color: C.gold, letterSpacing: '-0.02em' }}>統包先生</span>
-          <span style={{ ...font(600, 10), color: 'rgba(255,255,255,0.25)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>WEEKLY MEETING</span>
+      <header style={{ background: C.iron, position: 'sticky', top: 0, zIndex: 200 }}>
+        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {!isMobile && <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'none', border: 'none', color: C.fog, fontSize: 16, cursor: 'pointer', padding: 4, opacity: 0.6 }}>☰</button>}
+            <div style={{ width: 3, height: 20, background: C.gold, borderRadius: 1 }} />
+            <span style={{ ...font(800, isMobile ? 16 : 18), color: C.gold, letterSpacing: '-0.02em' }}>統包先生</span>
+            {!isMobile && <span style={{ ...font(600, 10), color: 'rgba(255,255,255,0.25)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>WEEKLY MEETING</span>}
+          </div>
+          {isMobile ? (
+            <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {REGIONS.map(r => (
+                <button key={r} onClick={() => { setRegion(r); if (view !== 'meeting') { setView('meeting'); setActiveNav('cases'); } }} style={{
+                  ...font(r === region && view === 'meeting' ? 700 : 500, 12), padding: '5px 14px', borderRadius: 3, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                  background: r === region && view === 'meeting' ? C.gold : 'transparent', color: r === region && view === 'meeting' ? C.iron : 'rgba(255,255,255,0.4)',
+                }}>{r}</button>
+              ))}
+              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+              <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {REGIONS.map(r => (
-            <button key={r} onClick={() => { setRegion(r); if (view !== 'meeting') { setView('meeting'); setActiveNav('cases'); } }} style={{
-              ...font(r === region && view === 'meeting' ? 700 : 500, 12), padding: '5px 14px', borderRadius: 3, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-              background: r === region && view === 'meeting' ? C.gold : 'transparent', color: r === region && view === 'meeting' ? C.iron : 'rgba(255,255,255,0.4)',
-            }}>{r}</button>
-          ))}
-          <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-          <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
-        </div>
+        {isMobile && (
+          <div className="mobile-region-scroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 16px 10px', borderTop: `1px solid ${C.ironMid}` }}>
+            {REGIONS.map(r => (
+              <button key={r} onClick={() => { setRegion(r); if (view !== 'meeting') { setView('meeting'); setActiveNav('cases'); } }} style={{
+                ...font(r === region && view === 'meeting' ? 700 : 500, 13), padding: '6px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', flexShrink: 0,
+                background: r === region && view === 'meeting' ? C.gold : 'rgba(255,255,255,0.08)', color: r === region && view === 'meeting' ? C.iron : 'rgba(255,255,255,0.65)',
+              }}>{r}</button>
+            ))}
+          </div>
+        )}
       </header>
 
       <div style={{ display: 'flex', flex: 1 }}>
         {/* ===== SIDEBAR ===== */}
-        <nav style={{ width: sideW, minWidth: sideW, background: C.iron, padding: '8px 0', position: 'sticky', top: 56, height: 'calc(100vh - 56px)', overflowY: 'auto', transition: 'all 0.2s', borderRight: `1px solid ${C.ironMid}` }}>
+        {!isMobile && <nav style={{ width: sideW, minWidth: sideW, background: C.iron, padding: '8px 0', position: 'sticky', top: 56, height: 'calc(100vh - 56px)', overflowY: 'auto', transition: 'all 0.2s', borderRight: `1px solid ${C.ironMid}` }}>
           {NAV.map((n, idx) => {
             const active = activeNav === n.id;
             const isDash = n.id === 'dashboard';
@@ -301,10 +326,10 @@ export default function App() {
               </button>
             );
           })}
-        </nav>
+        </nav>}
 
         {/* ===== MAIN ===== */}
-        <main style={{ flex: 1, padding: '28px 32px', maxWidth: 1200, overflowX: 'hidden' }}>
+        <main style={{ flex: 1, padding: isMobile ? '16px 12px' : '28px 32px', paddingBottom: isMobile ? 76 : undefined, maxWidth: 1200, overflowX: 'hidden' }}>
           {view === 'dashboard' ? <Dashboard data={allData} /> : loading ? (
             <div style={{ ...bodyFont(500, 14), textAlign: 'center', padding: 80, color: C.steel }}>載入中...</div>
           ) : (
@@ -531,6 +556,25 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* ===== MOBILE BOTTOM NAV ===== */}
+      {isMobile && (
+        <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.iron, borderTop: `2px solid ${C.ironMid}`, display: 'flex', zIndex: 300, height: 60 }}>
+          {NAV.map(n => {
+            const isActive = activeNav === n.id;
+            return (
+              <button key={n.id} onClick={() => scrollTo(n.id)} style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+                border: 'none', cursor: 'pointer', background: 'transparent', padding: '6px 0',
+                borderTop: isActive ? `2px solid ${C.gold}` : '2px solid transparent',
+              }}>
+                <span style={{ ...font(isActive ? 700 : 600, 11), color: isActive ? C.gold : 'rgba(255,255,255,0.3)' }}>{n.icon}</span>
+                <span style={{ ...bodyFont(isActive ? 700 : 500, 8), color: isActive ? C.gold : 'rgba(255,255,255,0.3)', whiteSpace: 'nowrap' }}>{n.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
     </div>
   );
 }
