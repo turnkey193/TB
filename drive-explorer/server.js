@@ -70,12 +70,22 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Per-user token & cache store (reset on server restart — users just re-login)
+const userTokens  = new Map(); // email → OAuth2 tokens
+const userCaches  = new Map(); // email → { items, cacheTime }
+const userScanJobs = new Map(); // email → in-flight scan Promise
+
 // Middleware: require Google login (skipped if OAuth not configured)
 function requireAuth(req, res, next) {
   if (!GOOGLE_CLIENT_ID) return next();
   const session = verifySession(parseCookies(req)[SESSION_COOKIE]);
-  if (session) { req.user = session; return next(); }
-  res.redirect('/login?r=' + encodeURIComponent(req.originalUrl));
+  if (!session) return res.redirect('/login?r=' + encodeURIComponent(req.originalUrl));
+  if (!userTokens.has(session.email)) {
+    // Tokens lost on server restart — redirect to silent re-auth
+    return res.redirect('/login?r=' + encodeURIComponent(req.originalUrl));
+  }
+  req.user = session;
+  next();
 }
 
 // ── Auth Routes ──
@@ -88,10 +98,14 @@ app.get('/login', (req, res) => {
 app.get('/auth/google', (req, res) => {
   const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
   const url = client.generateAuthUrl({
-    access_type: 'online',
-    scope: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+    access_type: 'offline',
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/drive.readonly',
+    ],
     state: req.query.r || '/',
-    prompt: 'select_account'
+    prompt: 'select_account consent',
   });
   res.redirect(url);
 });
@@ -117,6 +131,7 @@ app.get('/auth/callback', async (req, res) => {
     }
     const token = signSession(email);
     res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}`);
+    userTokens.set(email, tokens); // store for Drive API calls
     console.log(`[Auth] Login: ${email}`);
     res.redirect(decodeURIComponent(state || '/'));
   } catch (err) {
@@ -193,14 +208,89 @@ async function scanDrive() {
   return triggerScan();
 }
 
+// ── Per-user Drive scan (uses logged-in user's credentials → respects Drive sharing) ──
+async function doUserScan(email) {
+  const tokens = userTokens.get(email);
+  if (!tokens) throw Object.assign(new Error('No tokens'), { code: 401 });
+  const oauthClient = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
+  oauthClient.setCredentials(tokens);
+  oauthClient.on('tokens', updated => userTokens.set(email, { ...tokens, ...updated }));
+  const drive = google.drive({ version: 'v3', auth: oauthClient });
+  const items = [];
+
+  async function listFolder(folderId, depth, parentPath) {
+    const subFolders = [];
+    let pageToken = null;
+    try {
+      do {
+        const res = await drive.files.list({
+          q: `'${folderId}' in parents and trashed = false`,
+          fields: 'nextPageToken, files(id, name, mimeType)',
+          orderBy: 'name',
+          pageSize: 200,
+          pageToken
+        });
+        for (const f of res.data.files) {
+          const filePath = parentPath ? parentPath + '/' + f.name : f.name;
+          const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
+          items.push({ id: f.id, name: f.name, mimeType: f.mimeType, path: filePath, depth, isFolder, parentId: folderId });
+          if (isFolder) subFolders.push({ id: f.id, depth: depth + 1, path: filePath });
+        }
+        pageToken = res.data.nextPageToken;
+      } while (pageToken);
+    } catch (e) {
+      if (e.code === 403 || e.code === 404) return; // no access to this folder — skip silently
+      throw e;
+    }
+    if (subFolders.length > 0) {
+      await Promise.all(subFolders.map(sf => listFolder(sf.id, sf.depth, sf.path)));
+    }
+  }
+
+  await listFolder(ROOT_FOLDER_ID, 0, '');
+  const result = { items, cacheTime: Date.now() };
+  userCaches.set(email, result);
+  userScanJobs.delete(email);
+  console.log(`[Drive] Scanned ${items.length} items for ${email}`);
+  return result;
+}
+
+function triggerUserScan(email) {
+  if (!userScanJobs.has(email)) {
+    const job = doUserScan(email).catch(e => { userScanJobs.delete(email); throw e; });
+    userScanJobs.set(email, job);
+  }
+  return userScanJobs.get(email);
+}
+
+async function getTreeForUser(email, forceRefresh) {
+  if (forceRefresh) { userCaches.delete(email); userScanJobs.delete(email); }
+  const cached = userCaches.get(email);
+  if (cached && Date.now() - cached.cacheTime < CACHE_TTL) return cached;
+  if (cached) {
+    triggerUserScan(email).catch(e => console.error('[Drive] BG scan failed:', e.message));
+    return cached;
+  }
+  return triggerUserScan(email);
+}
+
 // ── API ──
 app.get('/api/tree', requireAuth, async (req, res) => {
   try {
-    if (req.query.refresh === '1') { cache = null; scanPromise = null; }
-    const items = await scanDrive();
-    res.json({ ok: true, items, scannedAt: new Date(cacheTime).toISOString() });
+    let result;
+    if (GOOGLE_CLIENT_ID) {
+      // Use logged-in user's Google credentials — Drive permissions apply naturally
+      result = await getTreeForUser(req.user.email, req.query.refresh === '1');
+    } else {
+      // No OAuth — service account sees everything
+      if (req.query.refresh === '1') { cache = null; scanPromise = null; }
+      const items = await scanDrive();
+      result = { items, cacheTime };
+    }
+    res.json({ ok: true, items: result.items, scannedAt: new Date(result.cacheTime).toISOString() });
   } catch (err) {
     console.error('[API Error]', err.message);
+    if (err.code === 401) return res.status(401).json({ ok: false, error: 'auth_expired' });
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -215,8 +305,17 @@ const EXPORT_AS_PDF = new Set([
 
 app.get('/api/file/:id', requireAuth, async (req, res) => {
   try {
-    const auth = getAuth();
-    const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+    let drive;
+    if (GOOGLE_CLIENT_ID) {
+      const tokens = userTokens.get(req.user.email);
+      if (!tokens) return res.redirect('/login');
+      const oauthClient = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
+      oauthClient.setCredentials(tokens);
+      drive = google.drive({ version: 'v3', auth: oauthClient });
+    } else {
+      const auth = getAuth();
+      drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+    }
     const fileId = req.params.id;
 
     // Get file metadata first
@@ -262,8 +361,7 @@ app.get('/', requireAuth, (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Drive Explorer running on port ${PORT}`);
-  // Pre-warm cache immediately so first user gets instant response
-  triggerScan();
+  if (!GOOGLE_CLIENT_ID) triggerScan(); // pre-warm only when no OAuth
 });
 
 // ── Embedded HTML ──
@@ -673,6 +771,7 @@ async function loadTree(forceRefresh) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
+    if (!data.ok && data.error === 'auth_expired') { window.location.href = '/login?r=' + encodeURIComponent(window.location.pathname); return; }
     if (!data.ok) throw new Error(data.error || '未知錯誤');
     allItems = data.items;
     buildChildMap(allItems);
