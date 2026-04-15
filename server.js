@@ -51,6 +51,14 @@ async function supaUpsert(table, body) {
   });
   return res.json();
 }
+async function supaInsert(table, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...supaHeaders, Prefer: 'return=representation' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
 async function supaPatch(table, id, body) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
     method: 'PATCH',
@@ -580,7 +588,7 @@ app.get('/api/notes/:region', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
   try {
     const { region, category, content, status = '未處理', meeting_date } = req.body;
-    const data = await supaUpsert('tb_weekly_notes', { region, category, content, status, meeting_date: meeting_date || new Date().toISOString().slice(0, 10) });
+    const data = await supaInsert('tb_weekly_notes', { region, category, content, status, meeting_date: meeting_date || new Date().toISOString().slice(0, 10) });
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -633,7 +641,7 @@ app.get('/api/expected/:region', async (req, res) => {
 app.post('/api/expected', async (req, res) => {
   try {
     const { region, address, amount, expected_date, note } = req.body;
-    const data = await supaUpsert('tb_expected_signs', {
+    const data = await supaInsert('tb_expected_signs', {
       region, address: address || '',
       amount: amount || '', expected_date: expected_date || '', note: note || '',
       meeting_date: new Date().toISOString().slice(0, 10),
