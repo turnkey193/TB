@@ -747,9 +747,10 @@ export default function App() {
                             <TD style={{ fontWeight: 700 }}>{c.customer}</TD><TD>{c.caseType}</TD><TD>{c.budget}</TD><TD>{c.contact}</TD>
                             <TD><Badge status={c.status} /></TD><TD><Abnormal text={c.abnormal} /></TD>
                             <TD onClick={e => e.stopPropagation()}>
-                              <input type="text" defaultValue={caseNotes[caseId] || ''} placeholder="備註..."
+                              <textarea defaultValue={caseNotes[caseId] || ''} placeholder="備註..."
                                 onBlur={e => saveCaseNote(caseId, e.target.value)}
-                                style={{ width: 130, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone }} />
+                                rows={1}
+                                style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'vertical', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle' }} />
                             </TD>
                             <TD style={{ ...font(700, 11), color: C.darkGold }}>{c.notes ? (expanded === i ? '▲' : '▼') : ''}</TD>
                           </TR>
@@ -793,12 +794,13 @@ export default function App() {
                           <TD><Days days={x.remainDays} /></TD>
                           <TD style={{ fontSize: 12 }}>{x.progress}</TD>
                           <TD>
-                            <input type="text"
+                            <textarea
                               value={noteInputs[x.caseNo] ?? (pn.note || '')}
                               placeholder="備註..."
                               onChange={e => setNoteInputs(prev => ({ ...prev, [x.caseNo]: e.target.value }))}
                               onBlur={e => saveProjectNote(x.caseNo, e.target.value, !!pn.is_abnormal)}
-                              style={{ width: 120, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone }} />
+                              rows={1}
+                              style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'vertical', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle' }} />
                           </TD>
                           <TD style={{ textAlign: 'center' }}>
                             <input type="checkbox" checked={!!pn.is_abnormal}
@@ -859,7 +861,7 @@ export default function App() {
                               <TD><select value={contractStatus} onChange={e => setPaymentDraft(x.caseNo, 'contract_status', e.target.value)} style={selStyle(contractStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
                               <TD><input type="number" value={get('additional_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'additional_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
                               <TD><select value={additionalStatus} onChange={e => setPaymentDraft(x.caseNo, 'additional_status', e.target.value)} style={selStyle(additionalStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
-                              <TD><input type="text" value={get('abnormal_note', '')} placeholder="異常原因" onChange={e => setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value)} style={{ width: 110, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone }} /></TD>
+                              <TD><textarea value={get('abnormal_note', '')} placeholder="異常原因" onChange={e => setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value)} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'vertical', minHeight: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle' }} /></TD>
                               <TD>{isDirty ? <button onClick={() => savePayment(x.caseNo, x.address)} style={{ ...font(700, 11), padding: '4px 12px', borderRadius: 3, border: 'none', cursor: 'pointer', background: C.gold, color: C.iron, whiteSpace: 'nowrap' }}>儲存</button> : <span style={{ ...font(500, 11), color: C.fog }}>已存</span>}</TD>
                             </TR>;
                           })}</tbody>
