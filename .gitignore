@@ -3,9 +3,7 @@ key/
 *.log
 .claude/
 .playwright-mcp/
-debug-*.js
-read-*.js
-test-*.js
-check-*.js
-count-*.js
 UI UX 參考資料/
+drive工具/
+會計工具/
+dev腳本/
