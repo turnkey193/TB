@@ -17,19 +17,20 @@ function getAuth() {
   });
 }
 
-// ── Cache (5 min) ──
+// ── Cache (5 min TTL, stale-while-revalidate) ──
 let cache = null;
 let cacheTime = 0;
+let scanPromise = null;
 const CACHE_TTL = 5 * 60 * 1000;
 
-async function scanDrive() {
-  if (cache && Date.now() - cacheTime < CACHE_TTL) return cache;
-
+// Scan Drive with parallel folder listing for speed
+async function doScan() {
   const auth = getAuth();
   const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
   const items = [];
 
   async function listFolder(folderId, depth, parentPath) {
+    const subFolders = [];
     let pageToken = null;
     do {
       const res = await drive.files.list({
@@ -43,10 +44,14 @@ async function scanDrive() {
         const filePath = parentPath ? parentPath + '/' + f.name : f.name;
         const isFolder = f.mimeType === 'application/vnd.google-apps.folder';
         items.push({ id: f.id, name: f.name, mimeType: f.mimeType, path: filePath, depth, isFolder, parentId: folderId });
-        if (isFolder) await listFolder(f.id, depth + 1, filePath);
+        if (isFolder) subFolders.push({ id: f.id, depth: depth + 1, path: filePath });
       }
       pageToken = res.data.nextPageToken;
     } while (pageToken);
+    // Scan all sibling folders in parallel instead of sequentially
+    if (subFolders.length > 0) {
+      await Promise.all(subFolders.map(sf => listFolder(sf.id, sf.depth, sf.path)));
+    }
   }
 
   await listFolder(ROOT_FOLDER_ID, 0, '');
@@ -56,10 +61,28 @@ async function scanDrive() {
   return items;
 }
 
+// Deduplicated scan trigger - multiple callers share the same in-flight scan
+function triggerScan() {
+  if (scanPromise) return scanPromise;
+  scanPromise = doScan()
+    .catch(e => { console.error('[Drive] Scan failed:', e.message); throw e; })
+    .finally(() => { scanPromise = null; });
+  return scanPromise;
+}
+
+async function scanDrive() {
+  // Fresh cache → return immediately (zero cost)
+  if (cache && Date.now() - cacheTime < CACHE_TTL) return cache;
+  // Stale data → return immediately, refresh in background
+  if (cache) { triggerScan(); return cache; }
+  // No cache at all → must wait for scan
+  return triggerScan();
+}
+
 // ── API ──
 app.get('/api/tree', async (req, res) => {
   try {
-    if (req.query.refresh === '1') { cache = null; }
+    if (req.query.refresh === '1') { cache = null; scanPromise = null; }
     const items = await scanDrive();
     res.json({ ok: true, items, scannedAt: new Date(cacheTime).toISOString() });
   } catch (err) {
@@ -121,7 +144,11 @@ app.get('/', (req, res) => {
   res.send(HTML);
 });
 
-app.listen(PORT, () => console.log(`Drive Explorer running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Drive Explorer running on port ${PORT}`);
+  // Pre-warm cache immediately so first user gets instant response
+  triggerScan();
+});
 
 // ── Embedded HTML ──
 const HTML = `<!DOCTYPE html>
