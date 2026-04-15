@@ -5,6 +5,7 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 // 日期工具：解析 YYYY/M/D 或 YYYY-M-D，加上 N 工作天（跳過週六日），判斷是否超過
 function parseDate(str) {
