@@ -1,5 +1,6 @@
 'use strict';
 const express = require('express');
+const crypto = require('crypto');
 const { google } = require('googleapis');
 
 const app = express();
@@ -16,6 +17,119 @@ function getAuth() {
     scopes: ['https://www.googleapis.com/auth/drive.readonly']
   });
 }
+
+// ── Google OAuth2 Login Gate ──
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const REDIRECT_URI         = process.env.GOOGLE_REDIRECT_URI || 'https://tb-drive.zeabur.app/auth/callback';
+// Optional: comma-separated whitelist. If unset, any Google account can log in.
+const ALLOWED_EMAILS = process.env.ALLOWED_EMAILS
+  ? process.env.ALLOWED_EMAILS.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  : null;
+
+// Signed session cookie — no server-side storage needed
+const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
+  const s = crypto.randomBytes(32).toString('hex');
+  console.warn('[Auth] SESSION_SECRET not set — sessions will reset on server restart');
+  return s;
+})();
+const SESSION_COOKIE  = 'tb_sess';
+const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 days (seconds)
+
+function signSession(email) {
+  const payload = Buffer.from(JSON.stringify({ email, exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE })).toString('base64');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
+  return payload + '.' + sig;
+}
+function verifySession(token) {
+  if (!token) return null;
+  const dot = token.lastIndexOf('.');
+  if (dot < 0) return null;
+  const payload = token.slice(0, dot);
+  const sig     = token.slice(dot + 1);
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
+  try {
+    if (sig.length !== expected.length) return null;
+    if (!crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'))) return null;
+  } catch { return null; }
+  try {
+    const data = JSON.parse(Buffer.from(payload, 'base64').toString());
+    if (Math.floor(Date.now() / 1000) > data.exp) return null;
+    return data;
+  } catch { return null; }
+}
+function parseCookies(req) {
+  const out = {};
+  (req.headers.cookie || '').split(';').forEach(part => {
+    const [k, ...v] = part.trim().split('=');
+    if (k) out[k.trim()] = decodeURIComponent(v.join('='));
+  });
+  return out;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Middleware: require Google login (skipped if OAuth not configured)
+function requireAuth(req, res, next) {
+  if (!GOOGLE_CLIENT_ID) return next();
+  const session = verifySession(parseCookies(req)[SESSION_COOKIE]);
+  if (session) { req.user = session; return next(); }
+  res.redirect('/login?r=' + encodeURIComponent(req.originalUrl));
+}
+
+// ── Auth Routes ──
+app.get('/login', (req, res) => {
+  if (!GOOGLE_CLIENT_ID) return res.redirect('/');
+  res.send(LOGIN_HTML.replace('{{REDIRECT}}', encodeURIComponent(req.query.r || '/'))
+                     .replace('{{ERROR}}',    req.query.error ? '<p class="err">登入失敗，請再試一次。</p>' : ''));
+});
+
+app.get('/auth/google', (req, res) => {
+  const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
+  const url = client.generateAuthUrl({
+    access_type: 'online',
+    scope: ['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/userinfo.profile'],
+    state: req.query.r || '/',
+    prompt: 'select_account'
+  });
+  res.redirect(url);
+});
+
+app.get('/auth/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    if (!code) throw new Error('No code');
+    const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, REDIRECT_URI);
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+    const oauth2 = google.oauth2({ version: 'v2', auth: client });
+    const { data } = await oauth2.userinfo.get();
+    const email = (data.email || '').toLowerCase();
+    if (!email) throw new Error('No email');
+    if (ALLOWED_EMAILS && !ALLOWED_EMAILS.includes(email)) {
+      return res.status(403).send(
+        `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>禁止存取</title>
+        <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;background:#fcf9f8}
+        h2{color:#ba1a1a;font-size:20px}p{color:#666;font-size:14px}a{color:#7b5900;font-weight:600}</style></head>
+        <body><h2>沒有存取權限</h2><p>帳號 ${escHtml(email)} 未在允許名單內。</p><a href="/login">返回登入</a></body></html>`
+      );
+    }
+    const token = signSession(email);
+    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}`);
+    console.log(`[Auth] Login: ${email}`);
+    res.redirect(decodeURIComponent(state || '/'));
+  } catch (err) {
+    console.error('[Auth] Callback error:', err.message);
+    res.redirect('/login?error=1');
+  }
+});
+
+app.get('/logout', (req, res) => {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; Max-Age=0`);
+  res.redirect('/login');
+});
+
 
 // ── Cache (5 min TTL, stale-while-revalidate) ──
 let cache = null;
@@ -80,7 +194,7 @@ async function scanDrive() {
 }
 
 // ── API ──
-app.get('/api/tree', async (req, res) => {
+app.get('/api/tree', requireAuth, async (req, res) => {
   try {
     if (req.query.refresh === '1') { cache = null; scanPromise = null; }
     const items = await scanDrive();
@@ -99,7 +213,7 @@ const EXPORT_AS_PDF = new Set([
   'application/vnd.google-apps.presentation',
 ]);
 
-app.get('/api/file/:id', async (req, res) => {
+app.get('/api/file/:id', requireAuth, async (req, res) => {
   try {
     const auth = getAuth();
     const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
@@ -140,8 +254,10 @@ app.get('/api/file/:id', async (req, res) => {
 });
 
 // ── HTML ──
-app.get('/', (req, res) => {
-  res.send(HTML);
+app.get('/', requireAuth, (req, res) => {
+  const email = req.user ? escHtml(req.user.email) : '';
+  const showUser = (GOOGLE_CLIENT_ID && req.user) ? 'flex' : 'none';
+  res.send(HTML.replace('__USER_EMAIL__', email).replace('__SHOW_USER__', showUser));
 });
 
 app.listen(PORT, () => {
@@ -385,6 +501,10 @@ body { font-family:var(--font-body); background:var(--surface); color:var(--on-s
         <h1>統包先生</h1>
         <span>Drive Explorer</span>
       </div>
+    </div>
+    <div id="userBadge" style="display:__SHOW_USER__;margin-top:10px;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--surface-container);border-radius:var(--radius);gap:8px;">
+      <span style="font-family:var(--font-body);font-size:11px;color:var(--on-surface-variant);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">__USER_EMAIL__</span>
+      <a href="/logout" style="font-family:var(--font-display);font-size:10px;font-weight:600;color:var(--primary);text-decoration:none;letter-spacing:0.04em;text-transform:uppercase;flex-shrink:0;">登出</a>
     </div>
   </div>
   <div class="sidebar-search">
@@ -739,5 +859,123 @@ document.addEventListener('keydown', function(e) {
 
 loadTree();
 </script>
+</body>
+</html>`;
+
+// ── Login Page ──
+const LOGIN_HTML = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>統包先生 - 登入</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #7b5900;
+  --primary-container: #f9b91b;
+  --primary-fixed: #ffdea4;
+  --on-primary-fixed: #261900;
+  --surface: #fcf9f8;
+  --surface-container-low: #f6f3f2;
+  --surface-container: #f0edec;
+  --surface-container-high: #eae7e7;
+  --on-surface: #1c1b1b;
+  --on-surface-variant: #4d4543;
+  --outline-variant: #d4c4ac;
+  --error: #ba1a1a;
+  --shadow: rgba(28,27,27,0.08);
+  --font: 'Space Grotesk','Noto Sans TC',sans-serif;
+  --radius: 0.375rem;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family:var(--font);
+  background:var(--surface);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.card {
+  width:100%;
+  max-width:400px;
+  background:#fff;
+  border-radius:16px;
+  padding:48px 40px 40px;
+  box-shadow:0 24px 48px var(--shadow);
+  text-align:center;
+}
+.logo {
+  width:56px; height:56px;
+  background:linear-gradient(135deg,var(--primary),var(--primary-container));
+  border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:700; color:var(--on-primary-fixed);
+  margin:0 auto 20px;
+  letter-spacing:-0.02em;
+}
+h1 {
+  font-size:22px; font-weight:700;
+  color:var(--on-surface);
+  letter-spacing:-0.02em;
+  margin-bottom:6px;
+}
+.sub {
+  font-size:13px; color:var(--on-surface-variant);
+  margin-bottom:36px;
+  opacity:0.7;
+}
+.err {
+  background:#fff0f0; color:var(--error);
+  border-radius:var(--radius);
+  padding:10px 14px;
+  font-size:13px;
+  margin-bottom:16px;
+}
+.btn-google {
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  width:100%; padding:14px 20px;
+  background:#fff; color:#3c4043;
+  border:1.5px solid var(--outline-variant);
+  border-radius:var(--radius);
+  font-family:var(--font); font-size:14px; font-weight:600;
+  cursor:pointer; text-decoration:none;
+  transition:all 0.15s;
+  box-shadow:0 2px 6px rgba(0,0,0,0.06);
+}
+.btn-google:hover {
+  background:var(--surface-container-low);
+  box-shadow:0 4px 12px rgba(0,0,0,0.1);
+  transform:translateY(-1px);
+}
+.btn-google:active { transform:translateY(0); }
+.btn-google svg { flex-shrink:0; }
+.footer {
+  margin-top:28px;
+  font-size:11px; color:var(--on-surface-variant);
+  opacity:0.4;
+  line-height:1.6;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">TB</div>
+  <h1>統包先生</h1>
+  <p class="sub">Drive Explorer — 請登入以繼續</p>
+  {{ERROR}}
+  <a class="btn-google" href="/auth/google?r={{REDIRECT}}">
+    <svg width="20" height="20" viewBox="0 0 48 48">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+    使用 Google 帳號登入
+  </a>
+  <p class="footer">僅限授權人員存取<br>登入即代表同意使用本系統</p>
+</div>
 </body>
 </html>`;

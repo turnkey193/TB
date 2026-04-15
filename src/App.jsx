@@ -87,6 +87,55 @@ const ChartTip = ({ active, payload, label }) => {
   </div>;
 };
 
+// ======= LOGIN PAGE =======
+function LoginPage({ onLogin }) {
+  const [user, setUser] = useState('');
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!user.trim() || !pass) return;
+    setBusy(true); setErr('');
+    const result = await onLogin(user.trim(), pass);
+    if (!result.ok) setErr('帳號或密碼錯誤');
+    setBusy(false);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.iron, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap'); *{margin:0;padding:0;box-sizing:border-box;} input::placeholder{color:rgba(255,255,255,0.18);} input:focus{outline:none!important;}`}</style>
+      <div style={{ width: '100%', maxWidth: 360 }}>
+        <div style={{ marginBottom: 48, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 4, height: 36, background: C.gold, borderRadius: 2 }} />
+          <div>
+            <div style={{ ...font(800, 26), color: C.gold, letterSpacing: '-0.02em' }}>統包先生</div>
+            <div style={{ ...font(600, 10), color: 'rgba(255,255,255,0.25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>WEEKLY MEETING SYSTEM</div>
+          </div>
+        </div>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={{ ...font(700, 10), color: C.fog, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 7 }}>帳號</div>
+            <input value={user} onChange={e => setUser(e.target.value)} placeholder="username" autoFocus
+              style={{ width: '100%', ...bodyFont(400, 15), background: C.ironLight, border: `1px solid ${err ? C.rust : C.ironMid}`, borderRadius: 4, padding: '12px 16px', color: '#fff' }} />
+          </div>
+          <div>
+            <div style={{ ...font(700, 10), color: C.fog, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 7 }}>密碼</div>
+            <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="password"
+              style={{ width: '100%', ...bodyFont(400, 15), background: C.ironLight, border: `1px solid ${err ? C.rust : C.ironMid}`, borderRadius: 4, padding: '12px 16px', color: '#fff' }} />
+          </div>
+          {err && <div style={{ ...bodyFont(500, 13), color: C.rust, background: '#3d1212', padding: '10px 14px', borderRadius: 4 }}>{err}</div>}
+          <button type="submit" disabled={busy}
+            style={{ ...font(700, 15), background: busy ? C.fog : C.gold, color: C.iron, border: 'none', borderRadius: 4, padding: '14px', cursor: busy ? 'wait' : 'pointer', marginTop: 6 }}>
+            {busy ? '驗證中...' : '登入'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ======= DASHBOARD VIEW =======
 function Dashboard({ data }) {
   if (!data) return null;
@@ -158,6 +207,7 @@ function Dashboard({ data }) {
 
 // ======= MAIN APP =======
 export default function App() {
+  const [auth, setAuth] = useState(() => { try { return JSON.parse(localStorage.getItem('tb_auth') || 'null'); } catch { return null; } });
   const [region, setRegion] = useState('台北');
   const [view, setView] = useState('dashboard');
   const [data, setData] = useState(null);
@@ -263,6 +313,24 @@ export default function App() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
+  // 區域帳號：自動切到該區並進入週會視圖
+  useEffect(() => {
+    if (auth?.role === 'region' && auth.region) {
+      setRegion(auth.region);
+      setView('meeting');
+      setActiveNav('cases');
+    }
+  }, [auth?.role, auth?.region]);
+
+  const login = async (username, password) => {
+    const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }) });
+    const data = await res.json();
+    if (data.ok) { localStorage.setItem('tb_auth', JSON.stringify(data)); setAuth(data); }
+    return data;
+  };
+  const logout = () => { localStorage.removeItem('tb_auth'); setAuth(null); };
+
   const p = data?.projects || [], cases = data?.cases || [], abnormal = data?.abnormalCases || [], stats = data?.stats || {};
   const working = p.filter(x => x.status === '施工中').length, pending = p.filter(x => x.status === '待驗收').length;
   const waiting = p.filter(x => x.status === '待開工').length;
@@ -276,6 +344,10 @@ export default function App() {
   const empChart = (data?.employees || []).filter(e => e.totalRevenue).map(e => ({ name: e.name, 業績: parseInt(e.totalRevenue) || 0 }));
 
   const sideW = collapsed ? 52 : 170;
+  const isAdmin = auth?.role === 'admin';
+  const allowedRegions = isAdmin ? REGIONS : REGIONS.filter(r => r === auth?.region);
+
+  if (!auth) return <LoginPage onLogin={login} />;
 
   return (
     <div style={{ minHeight: '100vh', background: C.stone, display: 'flex', flexDirection: 'column' }}>
@@ -309,10 +381,20 @@ export default function App() {
             {!isMobile && <span style={{ ...font(600, 10), color: 'rgba(255,255,255,0.25)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>WEEKLY MEETING</span>}
           </div>
           {isMobile ? (
-            <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
+              <button onClick={logout} style={{ ...font(600, 10), padding: '4px 10px', borderRadius: 3, border: `1px solid ${C.ironMid}`, cursor: 'pointer', background: 'none', color: 'rgba(255,255,255,0.35)' }}>登出</button>
+            </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {REGIONS.map(r => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {isAdmin && (
+                <button onClick={() => { setView('dashboard'); setActiveNav('dashboard'); }} style={{
+                  ...font(view === 'dashboard' ? 700 : 600, 12), padding: '5px 14px', borderRadius: 3, border: 'none', cursor: 'pointer', marginRight: 4,
+                  background: view === 'dashboard' ? C.gold : 'rgba(249,185,27,0.1)', color: view === 'dashboard' ? C.iron : C.gold,
+                }}>◆ 全區總覽</button>
+              )}
+              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', marginRight: 2 }} />
+              {allowedRegions.map(r => (
                 <button key={r} onClick={() => { setRegion(r); if (view !== 'meeting') { setView('meeting'); setActiveNav('cases'); } }} style={{
                   ...font(r === region && view === 'meeting' ? 700 : 500, 12), padding: '5px 14px', borderRadius: 3, border: 'none', cursor: 'pointer', transition: 'all 0.2s',
                   background: r === region && view === 'meeting' ? C.gold : 'transparent', color: r === region && view === 'meeting' ? C.iron : 'rgba(255,255,255,0.4)',
@@ -320,12 +402,19 @@ export default function App() {
               ))}
               <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
               <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
+              <button onClick={logout} style={{ ...font(600, 10), padding: '4px 10px', borderRadius: 3, border: `1px solid ${C.ironMid}`, cursor: 'pointer', background: 'none', color: 'rgba(255,255,255,0.35)', marginLeft: 4 }}>{auth.name} · 登出</button>
             </div>
           )}
         </div>
         {isMobile && (
           <div className="mobile-region-scroll" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '6px 16px 10px', borderTop: `1px solid ${C.ironMid}` }}>
-            {REGIONS.map(r => (
+            {isAdmin && (
+              <button onClick={() => { setView('dashboard'); setActiveNav('dashboard'); }} style={{
+                ...font(view === 'dashboard' ? 700 : 500, 13), padding: '6px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', flexShrink: 0,
+                background: view === 'dashboard' ? C.gold : 'rgba(249,185,27,0.15)', color: view === 'dashboard' ? C.iron : C.gold,
+              }}>◆ 總覽</button>
+            )}
+            {allowedRegions.map(r => (
               <button key={r} onClick={() => { setRegion(r); if (view !== 'meeting') { setView('meeting'); setActiveNav('cases'); } }} style={{
                 ...font(r === region && view === 'meeting' ? 700 : 500, 13), padding: '6px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', flexShrink: 0,
                 background: r === region && view === 'meeting' ? C.gold : 'rgba(255,255,255,0.08)', color: r === region && view === 'meeting' ? C.iron : 'rgba(255,255,255,0.65)',
@@ -338,19 +427,16 @@ export default function App() {
       <div style={{ display: 'flex', flex: 1 }}>
         {/* ===== SIDEBAR ===== */}
         {!isMobile && <nav style={{ width: sideW, minWidth: sideW, background: C.iron, padding: '8px 0', position: 'sticky', top: 56, height: 'calc(100vh - 56px)', overflowY: 'auto', transition: 'all 0.2s', borderRight: `1px solid ${C.ironMid}` }}>
-          {NAV.map((n, idx) => {
+          {NAV.filter(n => n.id !== 'dashboard').map((n, idx) => {
             const active = activeNav === n.id;
-            const isDash = n.id === 'dashboard';
             return (
               <button key={n.id} onClick={() => scrollTo(n.id)} style={{
                 display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: collapsed ? '12px 0' : '10px 16px',
                 border: 'none', cursor: 'pointer', transition: 'all 0.15s', justifyContent: collapsed ? 'center' : 'flex-start',
                 background: active ? 'rgba(249,185,27,0.12)' : 'transparent',
                 borderLeft: active ? `3px solid ${C.gold}` : '3px solid transparent',
-                marginTop: isDash ? 0 : idx === 1 ? 8 : 0,
-                marginBottom: isDash ? 8 : 0,
               }}>
-                <span style={{ ...font(isDash ? 700 : 600, isDash ? 14 : 10), color: active ? C.gold : 'rgba(255,255,255,0.3)', letterSpacing: isDash ? 0 : '0.08em', minWidth: 20, textAlign: 'center' }}>{n.icon}</span>
+                <span style={{ ...font(600, 10), color: active ? C.gold : 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', minWidth: 20, textAlign: 'center' }}>{n.icon}</span>
                 {!collapsed && <span style={{ ...bodyFont(active ? 700 : 500, 12), color: active ? C.gold : 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap' }}>{n.label}</span>}
               </button>
             );
@@ -632,7 +718,7 @@ export default function App() {
       {/* ===== MOBILE BOTTOM NAV ===== */}
       {isMobile && (
         <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.iron, borderTop: `2px solid ${C.ironMid}`, display: 'flex', zIndex: 300, height: 60 }}>
-          {NAV.map(n => {
+          {NAV.filter(n => n.id !== 'dashboard' || isAdmin).map(n => {
             const isActive = activeNav === n.id;
             return (
               <button key={n.id} onClick={() => scrollTo(n.id)} style={{

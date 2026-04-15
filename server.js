@@ -657,6 +657,29 @@ app.delete('/api/expected/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ===== 帳號登入 API =====
+const USERS = {
+  'admin':    { password: 'tb@2026',   role: 'admin',  name: '總部' },
+  'taipei':   { password: 'taipei',    role: 'region', region: '台北', name: '台北' },
+  'taichung': { password: 'taichung',  role: 'region', region: '台中', name: '台中' },
+  'taoyuan':  { password: 'taoyuan',   role: 'region', region: '桃園', name: '桃園' },
+  'hsinchu':  { password: 'hsinchu',   role: 'region', region: '新竹', name: '新竹' },
+  'guishan':  { password: 'guishan',   role: 'region', region: '龜山', name: '龜山' },
+  'frame':    { password: 'frame',     role: 'region', region: '框框', name: '框框' },
+  'banqiao':  { password: 'banqiao',   role: 'region', region: '板橋', name: '板橋' },
+  'shuinan':  { password: 'shuinan',   role: 'region', region: '水湳', name: '水湳' },
+};
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  const user = USERS[String(username || '').toLowerCase()];
+  if (!user || user.password !== password) {
+    return res.status(401).json({ ok: false, message: '帳號或密碼錯誤' });
+  }
+  const { password: _pw, ...info } = user;
+  res.json({ ok: true, ...info });
+});
+
 // 靜態檔案服務（前端 build 產物）
 app.use(express.static(path.join(__dirname, 'dist')));
 app.get('/{*any}', (req, res) => {
