@@ -49,7 +49,7 @@ const Days = ({ days }) => {
 };
 
 const Metric = ({ label, value, highlight, large }) => (
-  <div style={{ padding: large ? '24px 28px' : '16px 20px', background: highlight ? `linear-gradient(135deg, ${C.iron} 0%, ${C.ironMid} 100%)` : C.bone, borderRadius: 4, flex: '1 1 140px', minWidth: 130, position: 'relative', overflow: 'hidden' }}>
+  <div className="metric-card" style={{ padding: large ? '24px 28px' : '16px 20px', background: highlight ? `linear-gradient(135deg, ${C.iron} 0%, ${C.ironMid} 100%)` : C.bone, borderRadius: 4, flex: '1 1 120px', minWidth: 100, position: 'relative', overflow: 'hidden' }}>
     {highlight && <div style={{ position: 'absolute', top: 0, right: 0, width: 60, height: 60, background: C.gold, opacity: 0.15, borderRadius: '0 0 0 60px' }} />}
     <div style={{ ...font(700, 9), letterSpacing: '0.12em', textTransform: 'uppercase', color: highlight ? C.fog : C.steel, marginBottom: 6 }}>{label}</div>
     <div style={{ ...font(800, large ? 36 : 28), letterSpacing: '-0.03em', color: highlight ? C.gold : C.iron, lineHeight: 1 }}>{value}</div>
@@ -57,15 +57,15 @@ const Metric = ({ label, value, highlight, large }) => (
 );
 
 const Block = ({ id, num, title, sub, gold, children }) => (
-  <div id={id} style={{ marginBottom: 32, borderRadius: 4, overflow: 'hidden', background: C.bone, scrollMarginTop: 64, ...fadeIn }}>
-    <div style={{ padding: '18px 28px', background: gold ? `linear-gradient(135deg, ${C.darkGold}, ${C.gold})` : C.iron, display: 'flex', alignItems: 'center', gap: 14 }}>
+  <div id={id} className="block-wrap" style={{ marginBottom: 24, borderRadius: 4, overflow: 'hidden', background: C.bone, scrollMarginTop: 64, ...fadeIn }}>
+    <div className="block-header" style={{ padding: '18px 28px', background: gold ? `linear-gradient(135deg, ${C.darkGold}, ${C.gold})` : C.iron, display: 'flex', alignItems: 'center', gap: 14 }}>
       {num && <span style={{ ...font(800, 11), color: gold ? C.iron : C.gold, opacity: 0.5, letterSpacing: '0.1em' }}>{num}</span>}
       <div>
         <div style={{ ...font(700, 15), color: gold ? C.iron : '#fff', letterSpacing: '-0.01em' }}>{title}</div>
         {sub && <div style={{ ...bodyFont(500, 11), color: gold ? 'rgba(28,27,27,0.5)' : 'rgba(255,255,255,0.35)', marginTop: 2 }}>{sub}</div>}
       </div>
     </div>
-    <div style={{ padding: '24px 28px' }}>{children}</div>
+    <div className="block-body" style={{ padding: '24px 28px' }}>{children}</div>
   </div>
 );
 
@@ -287,6 +287,16 @@ export default function App() {
         table { border-spacing:0; }
         .mobile-region-scroll::-webkit-scrollbar { display:none; }
         .mobile-region-scroll { -ms-overflow-style:none; scrollbar-width:none; }
+        @media (max-width: 767px) {
+          .block-wrap { scroll-margin-top: 108px !important; }
+          .block-header { padding: 13px 14px !important; }
+          .block-body { padding: 14px 12px !important; }
+          .metric-card { padding: 12px 14px !important; min-width: 80px !important; flex-basis: 80px !important; }
+          table { font-size: 12px; }
+          th, td { padding: 7px 8px !important; white-space: nowrap; }
+          input[type=number] { width: 58px !important; font-size: 12px !important; }
+          textarea { font-size: 13px !important; }
+        }
       `}</style>
 
       {/* ===== HEADER ===== */}
