@@ -38,7 +38,30 @@ function isOverdue(baseStr, workDays) {
 // Supabase helper
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://obgobetnlecbmypvfnsq.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZ29iZXRubGVjYm15cHZmbnNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMTgwOTEsImV4cCI6MjA5MTc5NDA5MX0.u1sxdWPtGcyGJyKmFIIrmPWVVJ6fZr36DB2sU7rhHRU';
+// service role key：繞過 RLS，僅用於 tb_users（帳號管理）
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZ29iZXRubGVjYm15cHZmbnNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjIxODA5MSwiZXhwIjoyMDkxNzk0MDkxfQ.EDrB8SHLLh5XTHxOeGLao5JFsEf8a-7Q7v-71EmLXWQ';
 const supaHeaders = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+const supaServiceHeaders = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' };
+
+async function supaGetService(table, params = '') {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: supaServiceHeaders });
+  return res.json();
+}
+async function supaInsertService(table, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST', headers: { ...supaServiceHeaders, Prefer: 'return=representation' }, body: JSON.stringify(body),
+  });
+  return res.json();
+}
+async function supaPatchService(table, id, body) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'PATCH', headers: { ...supaServiceHeaders, Prefer: 'return=representation' }, body: JSON.stringify(body),
+  });
+  return res.json();
+}
+async function supaDeleteService(table, id) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, { method: 'DELETE', headers: supaServiceHeaders });
+}
 
 async function supaGet(table, params = '') {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: supaHeaders });
@@ -681,7 +704,7 @@ app.post('/api/projectnotes', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const users = await supaGet('tb_users', `?username=eq.${encodeURIComponent(String(username || '').toLowerCase())}`);
+    const users = await supaGetService('tb_users', `?username=eq.${encodeURIComponent(String(username || '').toLowerCase())}`);
     if (!Array.isArray(users) || !users[0] || users[0].password !== password) {
       return res.status(401).json({ ok: false, message: '帳號或密碼錯誤' });
     }
@@ -693,7 +716,7 @@ app.post('/api/login', async (req, res) => {
 // ===== 帳號管理 API（admin only，前端已做權限保護）=====
 app.get('/api/admin/users', async (req, res) => {
   try {
-    const data = await supaGet('tb_users', '?select=id,username,role,region,name,created_at&order=created_at.asc');
+    const data = await supaGetService('tb_users', '?select=id,username,role,region,name,created_at&order=created_at.asc');
     res.json(Array.isArray(data) ? data : []);
   } catch (e) { res.json([]); }
 });
@@ -701,7 +724,7 @@ app.get('/api/admin/users', async (req, res) => {
 app.post('/api/admin/users', async (req, res) => {
   try {
     const { username, password, role, region, name } = req.body;
-    const data = await supaInsert('tb_users', {
+    const data = await supaInsertService('tb_users', {
       username: String(username || '').toLowerCase(), password, role, region: region || null, name,
     });
     res.json(data);
@@ -715,14 +738,14 @@ app.patch('/api/admin/users/:id', async (req, res) => {
     if (req.body.name) updates.name = req.body.name;
     if (req.body.role) updates.role = req.body.role;
     if (req.body.region !== undefined) updates.region = req.body.region;
-    const data = await supaPatch('tb_users', req.params.id, updates);
+    const data = await supaPatchService('tb_users', req.params.id, updates);
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/users/:id', async (req, res) => {
   try {
-    await supaDelete('tb_users', req.params.id);
+    await supaDeleteService('tb_users', req.params.id);
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
