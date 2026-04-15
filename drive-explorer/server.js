@@ -59,13 +59,60 @@ async function scanDrive() {
 // ── API ──
 app.get('/api/tree', async (req, res) => {
   try {
-    // Force fresh if requested
     if (req.query.refresh === '1') { cache = null; }
     const items = await scanDrive();
     res.json({ ok: true, items, scannedAt: new Date(cacheTime).toISOString() });
   } catch (err) {
     console.error('[API Error]', err.message);
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── File Proxy (no Google login needed) ──
+// For Google-native formats: export as PDF for preview
+const EXPORT_AS_PDF = new Set([
+  'application/vnd.google-apps.document',
+  'application/vnd.google-apps.spreadsheet',
+  'application/vnd.google-apps.presentation',
+]);
+
+app.get('/api/file/:id', async (req, res) => {
+  try {
+    const auth = getAuth();
+    const drive = google.drive({ version: 'v3', auth: await auth.getClient() });
+    const fileId = req.params.id;
+
+    // Get file metadata first
+    const meta = await drive.files.get({ fileId, fields: 'name,mimeType' });
+    const { name, mimeType } = meta.data;
+
+    let stream, contentType;
+
+    if (EXPORT_AS_PDF.has(mimeType)) {
+      // Export Google Docs/Sheets/Slides as PDF
+      const resp = await drive.files.export(
+        { fileId, mimeType: 'application/pdf' },
+        { responseType: 'stream' }
+      );
+      stream = resp.data;
+      contentType = 'application/pdf';
+    } else {
+      // Download binary file directly
+      const resp = await drive.files.get(
+        { fileId, alt: 'media' },
+        { responseType: 'stream' }
+      );
+      stream = resp.data;
+      contentType = mimeType || 'application/octet-stream';
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(name)}"`);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    stream.pipe(res);
+  } catch (err) {
+    console.error('[File Proxy Error]', err.message);
+    res.status(500).send('無法載入檔案：' + err.message);
   }
 });
 
@@ -348,19 +395,24 @@ body { font-family:var(--font-body); background:var(--surface); color:var(--on-s
           <div class="preview-path" id="previewPath">路徑</div>
         </div>
         <div class="preview-actions">
-          <a class="preview-btn" id="previewOpen" href="#" target="_blank">
+          <a class="preview-btn" id="previewOpen" href="#">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17 17 7M8 7h9v9"/></svg>
-            新分頁開啟
+            聚焦視窗
           </a>
           <button class="preview-btn primary" onclick="closePreview()">關閉</button>
         </div>
       </div>
       <div class="preview-body">
-        <div class="preview-loading show" id="previewLoading">
+        <div class="preview-loading" id="previewLoading">
           <div class="spinner"></div>
           <span>載入中</span>
         </div>
         <iframe class="preview-frame" id="previewFrame" src="about:blank"></iframe>
+        <div id="previewHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:var(--surface-container-low);pointer-events:none;">
+          <div style="font-family:var(--font-display);font-size:40px;opacity:0.12;font-weight:700">↗</div>
+          <div style="font-family:var(--font-display);font-size:12px;font-weight:600;color:var(--on-surface-variant);letter-spacing:0.08em;text-transform:uppercase;opacity:0.6;">已在獨立視窗開啟</div>
+          <div style="font-family:var(--font-body);font-size:12px;color:var(--on-surface-variant);opacity:0.4;text-align:center;max-width:200px;">首次需登入 Google，之後所有檔案不再詢問</div>
+        </div>
       </div>
     </div>
     <div class="hero-card">
@@ -575,11 +627,22 @@ document.getElementById('tree').addEventListener('click', function(e) {
   }
 });
 
+// Named preview window — login once, reuse same window for all files
+let previewWin = null;
+
+function previewUrl(item) {
+  if (item.mimeType === 'application/vnd.google-apps.spreadsheet')
+    return 'https://docs.google.com/spreadsheets/d/' + item.id + '/preview';
+  if (item.mimeType === 'application/vnd.google-apps.document')
+    return 'https://docs.google.com/document/d/' + item.id + '/preview';
+  if (item.mimeType === 'application/vnd.google-apps.presentation')
+    return 'https://docs.google.com/presentation/d/' + item.id + '/preview';
+  return 'https://drive.google.com/file/d/' + item.id + '/preview';
+}
+
 function showPreview(item) {
   const panel = document.getElementById('detailPanel');
   const preview = document.getElementById('previewPanel');
-  const frame = document.getElementById('previewFrame');
-  const loading = document.getElementById('previewLoading');
   panel.classList.add('has-preview');
   preview.classList.add('active');
   document.getElementById('previewTitle').textContent = item.name;
@@ -590,10 +653,29 @@ function showPreview(item) {
   document.querySelectorAll('.tree-row.selected').forEach(el => el.classList.remove('selected'));
   const sel = document.querySelector('.tree-node[data-id="'+item.id+'"]');
   if (sel) sel.querySelector('.tree-row').classList.add('selected');
-  loading.classList.add('show');
-  frame.src = 'https://drive.google.com/file/d/' + item.id + '/preview';
-  frame.onload = () => loading.classList.remove('show');
+
+  // Open in a named popup window — login once, all files reuse the same window
+  const w = 960, h = window.innerHeight - 60;
+  const left = window.screenX + window.innerWidth - w - 20;
+  const top = window.screenY + 40;
+  const features = 'width='+w+',height='+h+',left='+left+',top='+top+',resizable=yes,scrollbars=yes';
+  if (!previewWin || previewWin.closed) {
+    previewWin = window.open(previewUrl(item), 'tb_preview', features);
+  } else {
+    previewWin.location.href = previewUrl(item);
+    previewWin.focus();
+  }
+  // Update open button to focus the popup
+  document.getElementById('previewOpen').onclick = function(e) {
+    e.preventDefault();
+    if (previewWin && !previewWin.closed) { previewWin.focus(); }
+    else { window.open(driveUrl(item), '_blank'); }
+  };
+  // Show hint in the detail panel
+  document.getElementById('previewFrame').src = 'about:blank';
+  document.getElementById('previewLoading').classList.remove('show');
 }
+
 function closePreview() {
   document.getElementById('detailPanel').classList.remove('has-preview');
   document.getElementById('previewPanel').classList.remove('active');
