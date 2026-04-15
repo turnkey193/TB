@@ -643,16 +643,20 @@ app.get('/api/paymentrecords/:region', async (req, res) => {
 app.post('/api/paymentrecords', async (req, res) => {
   try {
     const { region, case_no, address, contract_amount, contract_status, additional_amount, additional_status, abnormal_note } = req.body;
-    const data = await supaUpsert('tb_payment_records', {
-      region, case_no, address,
-      contract_amount: parseInt(contract_amount) || 0,
-      contract_status: contract_status || '時間未到',
-      additional_amount: parseInt(additional_amount) || 0,
-      additional_status: additional_status || '時間未到',
-      abnormal_note: abnormal_note || '',
-      updated_at: new Date().toISOString(),
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_payment_records?on_conflict=region,case_no`, {
+      method: 'POST',
+      headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({
+        region, case_no, address,
+        contract_amount: parseInt(contract_amount) || 0,
+        contract_status: contract_status || '時間未到',
+        additional_amount: parseInt(additional_amount) || 0,
+        additional_status: additional_status || '時間未到',
+        abnormal_note: abnormal_note || '',
+        updated_at: new Date().toISOString(),
+      }),
     });
-    res.json(data);
+    res.json(await r.json());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -695,11 +699,13 @@ app.get('/api/projectnotes/:region', async (req, res) => {
 app.post('/api/projectnotes', async (req, res) => {
   try {
     const { region, case_no, note, is_abnormal } = req.body;
-    const data = await supaUpsert('tb_project_notes', {
-      region, case_no, note: note || '', is_abnormal: !!is_abnormal,
-      updated_at: new Date().toISOString(),
+    // 必須加 ?on_conflict=region,case_no，PostgREST 才能正確做 UPDATE（不是 INSERT）
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_project_notes?on_conflict=region,case_no`, {
+      method: 'POST',
+      headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({ region, case_no, note: note || '', is_abnormal: !!is_abnormal, updated_at: new Date().toISOString() }),
     });
-    res.json(data);
+    res.json(await r.json());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -714,11 +720,12 @@ app.get('/api/casenotes/:region', async (req, res) => {
 app.post('/api/casenotes', async (req, res) => {
   try {
     const { region, case_id, note } = req.body;
-    const data = await supaUpsert('tb_case_notes', {
-      region, case_id, note: note || '',
-      updated_at: new Date().toISOString(),
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_case_notes?on_conflict=region,case_id`, {
+      method: 'POST',
+      headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({ region, case_id, note: note || '', updated_at: new Date().toISOString() }),
     });
-    res.json(data);
+    res.json(await r.json());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

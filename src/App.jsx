@@ -432,6 +432,7 @@ export default function App() {
   const [expectedSigns, setExpectedSigns] = useState([]);
   const [signInput, setSignInput] = useState({ address: '', amount: '', expected_date: '', note: '' });
   const [projectNotes, setProjectNotes] = useState({}); // { case_no: { note, is_abnormal } }
+  const [noteInputs, setNoteInputs] = useState({}); // controlled note input values for 02 block
   const [caseNotes, setCaseNotes] = useState({}); // { case_id: note } for 01 block
 
   useEffect(() => {
@@ -460,7 +461,12 @@ export default function App() {
         const lsPn = JSON.parse(localStorage.getItem(`tb_pn_${region}`) || '{}');
         const apiPn = {};
         (Array.isArray(projNotesData) ? projNotesData : []).forEach(r => { apiPn[r.case_no] = r; });
-        setProjectNotes({ ...apiPn, ...lsPn }); // localStorage 優先（本機最新），Supabase 補缺少的 key
+        const merged = { ...apiPn, ...lsPn };
+        setProjectNotes(merged);
+        // 初始化 controlled note inputs
+        const initNotes = {};
+        Object.entries(merged).forEach(([k, v]) => { initNotes[k] = v.note || ''; });
+        setNoteInputs(initNotes);
         const cn = {};
         (Array.isArray(caseNotesData) ? caseNotesData : []).forEach(r => { cn[r.case_id] = r.note; });
         setCaseNotes(cn);
@@ -524,16 +530,14 @@ export default function App() {
       body: JSON.stringify({ region, case_no: caseNo, address, ...merged }) });
   };
 
-  const saveProjectNote = (caseNo, field, value) => {
-    // 直接讀 localStorage（同步）避免 React state 批次更新的 race condition
+  const saveProjectNote = (caseNo, note, isAbnormal) => {
+    const data = { note: note || '', is_abnormal: !!isAbnormal };
     const allNotes = JSON.parse(localStorage.getItem(`tb_pn_${region}`) || '{}');
-    const cur = allNotes[caseNo] || {};
-    const updated = { ...cur, [field]: value };
-    allNotes[caseNo] = updated;
+    allNotes[caseNo] = data;
     localStorage.setItem(`tb_pn_${region}`, JSON.stringify(allNotes));
-    setProjectNotes(prev => ({ ...prev, [caseNo]: updated }));
+    setProjectNotes(prev => ({ ...prev, [caseNo]: data }));
     fetch('/api/projectnotes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ region, case_no: caseNo, note: updated.note || '', is_abnormal: !!updated.is_abnormal })
+      body: JSON.stringify({ region, case_no: caseNo, note: data.note, is_abnormal: data.is_abnormal })
     }).catch(() => {});
   };
 
@@ -789,13 +793,16 @@ export default function App() {
                           <TD><Days days={x.remainDays} /></TD>
                           <TD style={{ fontSize: 12 }}>{x.progress}</TD>
                           <TD>
-                            <input type="text" defaultValue={pn.note || ''} placeholder="備註..."
-                              onBlur={e => saveProjectNote(x.caseNo, 'note', e.target.value)}
+                            <input type="text"
+                              value={noteInputs[x.caseNo] ?? (pn.note || '')}
+                              placeholder="備註..."
+                              onChange={e => setNoteInputs(prev => ({ ...prev, [x.caseNo]: e.target.value }))}
+                              onBlur={e => saveProjectNote(x.caseNo, e.target.value, !!pn.is_abnormal)}
                               style={{ width: 120, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone }} />
                           </TD>
                           <TD style={{ textAlign: 'center' }}>
                             <input type="checkbox" checked={!!pn.is_abnormal}
-                              onChange={e => saveProjectNote(x.caseNo, 'is_abnormal', e.target.checked)}
+                              onChange={e => saveProjectNote(x.caseNo, noteInputs[x.caseNo] ?? (pn.note || ''), e.target.checked)}
                               style={{ width: 16, height: 16, cursor: 'pointer', accentColor: C.rust }} />
                           </TD>
                         </TR>
