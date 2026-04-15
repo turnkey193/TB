@@ -656,7 +656,7 @@ export default function App() {
         </nav>}
 
         {/* ===== MAIN ===== */}
-        <main style={{ flex: 1, padding: isMobile ? '16px 12px' : '28px 32px', paddingBottom: isMobile ? 76 : undefined, maxWidth: 1200, overflowX: 'hidden' }}>
+        <main style={{ flex: 1, padding: isMobile ? '16px 12px' : '28px 32px', paddingBottom: isMobile ? 76 : undefined, overflowX: 'hidden' }}>
           {view === 'dashboard' ? <Dashboard data={allData} /> : view === 'accounts' ? <AccountsPage auth={auth} /> : loading ? (
             <div style={{ ...bodyFont(500, 14), textAlign: 'center', padding: 80, color: C.steel }}>載入中...</div>
           ) : (
