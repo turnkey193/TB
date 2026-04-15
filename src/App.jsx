@@ -432,6 +432,7 @@ export default function App() {
   const [expectedSigns, setExpectedSigns] = useState([]);
   const [signInput, setSignInput] = useState({ address: '', amount: '', expected_date: '', note: '' });
   const [projectNotes, setProjectNotes] = useState({}); // { case_no: { note, is_abnormal } }
+  const [caseNotes, setCaseNotes] = useState({}); // { case_id: note } for 01 block
 
   useEffect(() => {
     fetch('/api/allregions').then(r => r.json()).then(setAllData).catch(() => {});
@@ -446,7 +447,8 @@ export default function App() {
         fetch(`/api/paymentrecords/${encodeURIComponent(region)}`).then(r => r.json()).catch(() => []),
         fetch(`/api/expected/${encodeURIComponent(region)}`).then(r => r.json()).catch(() => []),
         fetch(`/api/projectnotes/${encodeURIComponent(region)}`).then(r => r.json()).catch(() => []),
-      ]).then(([meetingData, notesData, paymentsData, expectedData, projNotesData]) => {
+        fetch(`/api/casenotes/${encodeURIComponent(region)}`).then(r => r.json()).catch(() => []),
+      ]).then(([meetingData, notesData, paymentsData, expectedData, projNotesData, caseNotesData]) => {
         setData(meetingData);
         setNotes(Array.isArray(notesData) ? notesData : []);
         const pm = {};
@@ -459,6 +461,9 @@ export default function App() {
         const apiPn = {};
         (Array.isArray(projNotesData) ? projNotesData : []).forEach(r => { apiPn[r.case_no] = r; });
         setProjectNotes({ ...lsPn, ...apiPn }); // API 資料優先覆蓋
+        const cn = {};
+        (Array.isArray(caseNotesData) ? caseNotesData : []).forEach(r => { cn[r.case_id] = r.note; });
+        setCaseNotes(cn);
         setLoading(false);
       }).catch(() => setLoading(false));
     }
@@ -531,6 +536,12 @@ export default function App() {
     fetch('/api/projectnotes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ region, case_no: caseNo, note: updated.note || '', is_abnormal: !!updated.is_abnormal })
     }).catch(() => {});
+  };
+
+  const saveCaseNote = (caseId, note) => {
+    setCaseNotes(prev => ({ ...prev, [caseId]: note }));
+    fetch('/api/casenotes', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ region, case_id: caseId, note }) }).catch(() => {});
   };
 
   const scrollTo = (id) => {
@@ -723,18 +734,26 @@ export default function App() {
                 )}
                 {abnormal.length === 0 ? <div style={{ ...bodyFont(500, 13), padding: 24, textAlign: 'center', color: C.moss, background: C.mossLight, borderRadius: 4 }}>目前沒有異常案件</div> : (
                   <div style={{ overflow: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr>{['#','月份','地址','業主','類型','預算','設計師','狀態','異常',''].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
-                    <tbody>{abnormal.map((c, i) => (
-                      <React.Fragment key={i}>
-                        <TR onClick={() => c.notes && setExpanded(expanded === i ? null : i)}>
-                          <TD style={font(700, 13)}>{i + 1}</TD><TD style={{ whiteSpace: 'nowrap' }}>{c.fillMonth}</TD><TD style={{ maxWidth: 180 }}>{c.address}</TD>
-                          <TD style={{ fontWeight: 700 }}>{c.customer}</TD><TD>{c.caseType}</TD><TD>{c.budget}</TD><TD>{c.contact}</TD>
-                          <TD><Badge status={c.status} /></TD><TD><Abnormal text={c.abnormal} /></TD>
-                          <TD style={{ ...font(700, 11), color: C.darkGold }}>{c.notes ? (expanded === i ? '▲' : '▼') : ''}</TD>
-                        </TR>
-                        {expanded === i && c.notes && <tr><td colSpan={10} style={{ ...bodyFont(400, 12), padding: '14px 24px', background: C.warmCream, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{c.notes}</td></tr>}
-                      </React.Fragment>
-                    ))}</tbody></table></div>
+                    <thead><tr>{['#','月份','地址','業主','類型','預算','設計師','狀態','異常','異常備註',''].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <tbody>{abnormal.map((c, i) => {
+                      const caseId = c.id || c.address;
+                      return (
+                        <React.Fragment key={i}>
+                          <TR onClick={() => c.notes && setExpanded(expanded === i ? null : i)}>
+                            <TD style={font(700, 13)}>{i + 1}</TD><TD style={{ whiteSpace: 'nowrap' }}>{c.fillMonth}</TD><TD style={{ maxWidth: 180 }}>{c.address}</TD>
+                            <TD style={{ fontWeight: 700 }}>{c.customer}</TD><TD>{c.caseType}</TD><TD>{c.budget}</TD><TD>{c.contact}</TD>
+                            <TD><Badge status={c.status} /></TD><TD><Abnormal text={c.abnormal} /></TD>
+                            <TD onClick={e => e.stopPropagation()}>
+                              <input type="text" defaultValue={caseNotes[caseId] || ''} placeholder="備註..."
+                                onBlur={e => saveCaseNote(caseId, e.target.value)}
+                                style={{ width: 130, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone }} />
+                            </TD>
+                            <TD style={{ ...font(700, 11), color: C.darkGold }}>{c.notes ? (expanded === i ? '▲' : '▼') : ''}</TD>
+                          </TR>
+                          {expanded === i && c.notes && <tr><td colSpan={11} style={{ ...bodyFont(400, 12), padding: '14px 24px', background: C.warmCream, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{c.notes}</td></tr>}
+                        </React.Fragment>
+                      );
+                    })}</tbody></table></div>
                 )}
               </Block>
 

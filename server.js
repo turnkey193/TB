@@ -703,6 +703,25 @@ app.post('/api/projectnotes', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ===== 案件備註 API（01 區塊）=====
+app.get('/api/casenotes/:region', async (req, res) => {
+  try {
+    const data = await supaGet('tb_case_notes', `?region=eq.${encodeURIComponent(req.params.region)}`);
+    res.json(Array.isArray(data) ? data : []);
+  } catch (e) { res.json([]); }
+});
+
+app.post('/api/casenotes', async (req, res) => {
+  try {
+    const { region, case_id, note } = req.body;
+    const data = await supaUpsert('tb_case_notes', {
+      region, case_id, note: note || '',
+      updated_at: new Date().toISOString(),
+    });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ===== 帳號登入 API（從 Supabase tb_users 驗證）=====
 app.post('/api/login', async (req, res) => {
   try {
