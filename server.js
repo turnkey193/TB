@@ -531,7 +531,7 @@ app.get('/api/allregions', async (req, res) => {
             const allRows = meetingRes.data.values || [];
             const targetIdx = allRows.findIndex(r => r[0] && r[0].includes('年度') && r[0].includes('目標'));
             if (targetIdx >= 0) entry.milestone = parseInt(allRows[targetIdx + 1]?.[2]) || 0;
-          } catch (e) {}
+          } catch (e) { console.error(`[allregions] 年度目標 ${regionName}:`, e.message); }
         })() : Promise.resolve(),
 
         // 業績 from 案件追蹤表
@@ -539,7 +539,7 @@ app.get('/api/allregions', async (req, res) => {
           try {
             const perfRes = await sheets.spreadsheets.values.get({
               spreadsheetId: config.caseSheet,
-              range: "'業績表'!A1:Z20",
+              range: "'業績表'!A1:AM50",
             });
             const perfRows = perfRes.data.values || [];
             const totalRow = perfRows.find(r => r[0] === '合計');
@@ -549,20 +549,20 @@ app.get('/api/allregions', async (req, res) => {
               const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
               entry.monthlyRevenue = months.map((month, m) => ({ month, amount: parseInt(totalRow[7 + m * 2]) || 0 }));
             }
-          } catch (e) {}
+          } catch (e) { console.error(`[allregions] 業績 ${regionName}:`, e.message); }
 
           // 簽約率
           try {
             const panelRes = await sheets.spreadsheets.values.get({
               spreadsheetId: config.caseSheet,
-              range: "'面板資料'!A12:Z17",
+              range: "'面板資料'!A1:AM30",
             });
             const pRows = panelRes.data.values || [];
             const nameRow = pRows.find(r => r && r[0] === '姓名') || [];
             const rateRow = pRows.find(r => r && r[0] === '簽約率') || [];
             const sumIdx = nameRow.findIndex((v, i) => i > 0 && v === '總和');
             if (sumIdx >= 0) entry.signRate = rateRow[sumIdx] || '';
-          } catch (e) {}
+          } catch (e) { console.error(`[allregions] 簽約率 ${regionName}:`, e.message); }
         })() : Promise.resolve(),
       ]);
 
