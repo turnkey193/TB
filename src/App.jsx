@@ -737,7 +737,7 @@ export default function App() {
                 )}
                 {abnormal.length === 0 ? <div style={{ ...bodyFont(500, 13), padding: 24, textAlign: 'center', color: C.moss, background: C.mossLight, borderRadius: 4 }}>目前沒有異常案件</div> : (
                   <div style={{ overflow: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead><tr>{['#','月份','地址','業主','類型','預算','設計師','狀態','異常','異常備註',''].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+                    <thead><tr>{['#','月份','地址','業主','類型','預算','設計師','狀態','異常','備註',''].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
                     <tbody>{abnormal.map((c, i) => {
                       const caseId = c.id || c.address;
                       return (
@@ -749,8 +749,10 @@ export default function App() {
                             <TD onClick={e => e.stopPropagation()}>
                               <textarea defaultValue={caseNotes[caseId] || ''} placeholder="備註..."
                                 onBlur={e => saveCaseNote(caseId, e.target.value)}
+                                onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
+                                onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                 rows={1}
-                                style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'vertical', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle' }} />
+                                style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'none', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} />
                             </TD>
                             <TD style={{ ...font(700, 11), color: C.darkGold }}>{c.notes ? (expanded === i ? '▲' : '▼') : ''}</TD>
                           </TR>
@@ -797,10 +799,11 @@ export default function App() {
                             <textarea
                               value={noteInputs[x.caseNo] ?? (pn.note || '')}
                               placeholder="備註..."
-                              onChange={e => setNoteInputs(prev => ({ ...prev, [x.caseNo]: e.target.value }))}
+                              onChange={e => { setNoteInputs(prev => ({ ...prev, [x.caseNo]: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                               onBlur={e => saveProjectNote(x.caseNo, e.target.value, !!pn.is_abnormal)}
+                              onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                               rows={1}
-                              style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'vertical', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle' }} />
+                              style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'none', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} />
                           </TD>
                           <TD style={{ textAlign: 'center' }}>
                             <input type="checkbox" checked={!!pn.is_abnormal}
