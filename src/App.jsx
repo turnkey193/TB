@@ -36,7 +36,7 @@ const delay = (ms) => ({ ...fadeIn, animationDelay: `${ms}ms` });
 
 const Badge = ({ status }) => {
   const s = STATUS[status] || { bg: C.ash, c: C.ironMid };
-  return <span style={{ ...font(700, 10), padding: '3px 10px', borderRadius: 2, background: s.bg, color: s.c, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{status}</span>;
+  return <span style={{ ...font(700, 10), padding: '3px 10px', borderRadius: 2, background: s.bg, color: s.c, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', display: 'inline-block' }}>{status}</span>;
 };
 
 const Abnormal = ({ text }) => text ? <span style={{ ...font(700, 9), padding: '3px 8px', borderRadius: 2, background: C.rustLight, color: C.rust, letterSpacing: '0.04em' }}>{text}</span> : null;
