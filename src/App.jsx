@@ -471,7 +471,7 @@ export default function App() {
         (Array.isArray(caseNotesData) ? caseNotesData : []).forEach(r => { cn[r.case_id] = r.note; });
         setCaseNotes(cn);
         setLoading(false);
-      }).catch(() => setLoading(false));
+      }).catch(err => { console.error('載入失敗:', err); setLoading(false); setData({ error: '載入超時，請重新整理' }); });
     }
   }, [region, view]);
 

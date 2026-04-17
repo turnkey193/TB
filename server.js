@@ -181,13 +181,16 @@ app.get('/api/regions', (req, res) => {
 
 // ===== 整合 API: 一次取得某地區的完整週會資料 =====
 app.get('/api/meeting/:region', async (req, res) => {
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) res.status(504).json({ error: 'timeout', region: req.params.region });
+  }, 28000);
   try {
     const region = decodeURIComponent(req.params.region);
     const config = REGIONS[region];
-    if (!config) return res.json({ error: '地區不存在' });
+    if (!config) { clearTimeout(timeoutId); return res.json({ error: '地區不存在' }); }
 
     const cached = getCache(`meeting_${region}`);
-    if (cached) return res.json(cached);
+    if (cached) { clearTimeout(timeoutId); return res.json(cached); }
 
     const sheets = await getSheets();
     const result = { region };
@@ -503,11 +506,13 @@ app.get('/api/meeting/:region', async (req, res) => {
       console.error('週會額外資料錯誤:', e.message);
     }
 
+    clearTimeout(timeoutId);
     setCache(`meeting_${region}`, result);
-    res.json(result);
+    if (!res.headersSent) res.json(result);
   } catch (err) {
+    clearTimeout(timeoutId);
     console.error('會議資料錯誤:', err.message);
-    res.status(500).json({ error: err.message });
+    if (!res.headersSent) res.status(500).json({ error: err.message });
   }
 });
 
