@@ -748,9 +748,9 @@ export default function App() {
                             <TD><Badge status={c.status} /></TD><TD><Abnormal text={c.abnormal} /></TD>
                             <TD onClick={e => e.stopPropagation()}>
                               <textarea defaultValue={caseNotes[caseId] || ''} placeholder="備註..."
+                                ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                 onBlur={e => saveCaseNote(caseId, e.target.value)}
                                 onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                 rows={1}
                                 style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'none', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} />
                             </TD>
@@ -799,9 +799,9 @@ export default function App() {
                             <textarea
                               value={noteInputs[x.caseNo] ?? (pn.note || '')}
                               placeholder="備註..."
+                              ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                               onChange={e => { setNoteInputs(prev => ({ ...prev, [x.caseNo]: e.target.value })); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                               onBlur={e => saveProjectNote(x.caseNo, e.target.value, !!pn.is_abnormal)}
-                              onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                               rows={1}
                               style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'none', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} />
                           </TD>
@@ -864,7 +864,7 @@ export default function App() {
                               <TD><select value={contractStatus} onChange={e => setPaymentDraft(x.caseNo, 'contract_status', e.target.value)} style={selStyle(contractStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
                               <TD><input type="number" value={get('additional_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'additional_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
                               <TD><select value={additionalStatus} onChange={e => setPaymentDraft(x.caseNo, 'additional_status', e.target.value)} style={selStyle(additionalStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
-                              <TD><textarea value={get('abnormal_note', '')} placeholder="備註" onChange={e => { setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'none', minHeight: 28, height: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} /></TD>
+                              <TD><textarea value={get('abnormal_note', '')} placeholder="備註" ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} onChange={e => { setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'none', minHeight: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} /></TD>
                               <TD>{isDirty ? <button onClick={() => savePayment(x.caseNo, x.address)} style={{ ...font(700, 11), padding: '4px 12px', borderRadius: 3, border: 'none', cursor: 'pointer', background: C.gold, color: C.iron, whiteSpace: 'nowrap' }}>儲存</button> : <span style={{ ...font(500, 11), color: C.fog }}>已存</span>}</TD>
                             </TR>;
                           })}</tbody>
