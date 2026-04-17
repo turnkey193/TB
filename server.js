@@ -346,11 +346,12 @@ app.get('/api/meeting/:region', async (req, res) => {
 
         // 找「總和」的 index
         const sumIdx = nameRow.findIndex((v, i) => i > 0 && v === '總和');
+        const cleanCell = v => (v && !String(v).startsWith('#')) ? v : '';
 
         result.signRateData = {
-          totalCases: sumIdx >= 0 ? (totalRow[sumIdx] || '') : '',
-          totalSigned: sumIdx >= 0 ? (signRow[sumIdx] || '') : '',
-          signRate: sumIdx >= 0 ? (rateRow[sumIdx] || '') : '',
+          totalCases: sumIdx >= 0 ? cleanCell(totalRow[sumIdx]) : '',
+          totalSigned: sumIdx >= 0 ? cleanCell(signRow[sumIdx]) : '',
+          signRate: sumIdx >= 0 ? cleanCell(rateRow[sumIdx]) : '',
           byPerson: [],
         };
 
@@ -564,7 +565,8 @@ app.get('/api/allregions', async (req, res) => {
             const nameRow = pRows.find(r => r && r[0] === '姓名') || [];
             const rateRow = pRows.find(r => r && r[0] === '簽約率') || [];
             const sumIdx = nameRow.findIndex((v, i) => i > 0 && v === '總和');
-            if (sumIdx >= 0) entry.signRate = rateRow[sumIdx] || '';
+            const cleanCell = v => (v && !String(v).startsWith('#')) ? v : '';
+            if (sumIdx >= 0) entry.signRate = cleanCell(rateRow[sumIdx]);
           } catch (e) { console.error(`[allregions] 簽約率 ${regionName}:`, e.message); }
         })() : Promise.resolve(),
       ]);
