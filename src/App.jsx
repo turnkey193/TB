@@ -841,7 +841,7 @@ export default function App() {
                       </div>
                       <div style={{ overflow: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead><tr>{['案號','狀態','地址','設計師','合約金額','請款金額(合約)','是否收款','請款金額(追加)','是否收款','款異常摘要',''].map((h,i) => <TH key={i}>{h}</TH>)}</tr></thead>
+                          <thead><tr>{['案號','狀態','地址','設計師','合約金額','請款金額(合約)','是否收款','請款金額(追加)','是否收款','備註',''].map((h,i) => <TH key={i}>{h}</TH>)}</tr></thead>
                           <tbody>{paymentCases.map((x, i) => {
                             const pr = paymentRec[x.caseNo] || {};
                             const draft = paymentEdit[x.caseNo] || {};
@@ -861,7 +861,7 @@ export default function App() {
                               <TD><select value={contractStatus} onChange={e => setPaymentDraft(x.caseNo, 'contract_status', e.target.value)} style={selStyle(contractStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
                               <TD><input type="number" value={get('additional_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'additional_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
                               <TD><select value={additionalStatus} onChange={e => setPaymentDraft(x.caseNo, 'additional_status', e.target.value)} style={selStyle(additionalStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
-                              <TD><textarea value={get('abnormal_note', '')} placeholder="異常原因" onChange={e => setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value)} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'vertical', minHeight: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle' }} /></TD>
+                              <TD><textarea value={get('abnormal_note', '')} placeholder="備註" onChange={e => { setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} onFocus={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'none', minHeight: 28, height: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} /></TD>
                               <TD>{isDirty ? <button onClick={() => savePayment(x.caseNo, x.address)} style={{ ...font(700, 11), padding: '4px 12px', borderRadius: 3, border: 'none', cursor: 'pointer', background: C.gold, color: C.iron, whiteSpace: 'nowrap' }}>儲存</button> : <span style={{ ...font(500, 11), color: C.fog }}>已存</span>}</TD>
                             </TR>;
                           })}</tbody>
