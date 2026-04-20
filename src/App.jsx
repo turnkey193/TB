@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 
-const REGIONS = ['台北', '台中', '桃園', '新竹', '龜山', '框框', '板橋', '水湳'];
+// 分店清單從 /api/regions 動態載入，不再寫死
 const C = {
   gold: '#f9b91b', darkGold: '#7b5900', paleGold: '#ffdea4', warmCream: '#fef9ef',
   iron: '#1c1b1b', ironLight: '#2d2b2b', ironMid: '#3a3838',
@@ -112,7 +112,7 @@ function RegionCheckboxes({ selected, onChange }) {
 }
 
 // ======= REGIONS ADMIN PAGE =======
-function RegionsPage() {
+function RegionsPage({ onChanged }) {
   const [regions, setRegions] = useState([]);
   const [saEmail, setSaEmail] = useState('');
   const [editId, setEditId] = useState(null);
@@ -146,14 +146,14 @@ function RegionsPage() {
     } else {
       await fetch(`/api/admin/regions/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     }
-    setEditId(null); load(); setBusy(false);
+    setEditId(null); load(); setBusy(false); if (onChanged) onChanged();
   };
 
   const add = async () => {
     if (!form.name.trim()) return;
     setBusy(true);
     await fetch('/api/admin/regions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, sort_order: regions.length + 1 }) });
-    setForm({ name: '', case_sheet: '', work_sheet: '', case_tab: '進度統計' }); load(); setBusy(false);
+    setForm({ name: '', case_sheet: '', work_sheet: '', case_tab: '進度統計' }); load(); setBusy(false); if (onChanged) onChanged();
   };
 
   const deactivate = async (id) => {
@@ -649,9 +649,13 @@ export default function App() {
   const [noteInputs, setNoteInputs] = useState({}); // controlled note input values for 02 block
   const [caseNotes, setCaseNotes] = useState({}); // { case_id: note } for 01 block
   const [annualTarget, setAnnualTarget] = useState(null); // { milestone_revenue, milestone_sign_rate } from Supabase
+  const [regionList, setRegionList] = useState([]);
+
+  const refreshRegionList = () => fetch('/api/regions').then(r => r.json()).then(d => { if (Array.isArray(d)) setRegionList(d); }).catch(() => {});
 
   useEffect(() => {
     fetch('/api/allregions').then(r => r.json()).then(setAllData).catch(() => {});
+    refreshRegionList();
   }, []);
 
   useEffect(() => {
@@ -789,7 +793,7 @@ export default function App() {
   // 區域帳號：自動切到該區並進入週會視圖
   useEffect(() => {
     if (auth?.role === 'region' && auth.region) {
-      const first = parseRegions(auth.region)[0] || REGIONS[0];
+      const first = parseRegions(auth.region)[0] || regionList[0] || '台北';
       setRegion(first);
       setView('meeting');
       setActiveNav('cases');
@@ -821,7 +825,7 @@ export default function App() {
   const sideW = collapsed ? 52 : 170;
   const isAdmin = auth?.role === 'admin';
   const userRegions = parseRegions(auth?.region);
-  const allowedRegions = isAdmin ? REGIONS : REGIONS.filter(r => userRegions.includes(r));
+  const allowedRegions = isAdmin ? regionList : regionList.filter(r => userRegions.includes(r));
 
   if (!auth) return <LoginPage onLogin={login} />;
 
@@ -927,7 +931,7 @@ export default function App() {
 
         {/* ===== MAIN ===== */}
         <main style={{ flex: 1, padding: isMobile ? '16px 12px' : '28px 32px', paddingBottom: isMobile ? 76 : undefined, overflowX: 'hidden' }}>
-          {view === 'dashboard' ? <Dashboard data={allData} onAllDataRefresh={() => fetch('/api/allregions').then(r => r.json()).then(setAllData).catch(() => {})} /> : view === 'accounts' ? <AccountsPage auth={auth} /> : view === 'regions' ? <RegionsPage /> : loading ? (
+          {view === 'dashboard' ? <Dashboard data={allData} onAllDataRefresh={() => fetch('/api/allregions').then(r => r.json()).then(setAllData).catch(() => {})} /> : view === 'accounts' ? <AccountsPage auth={auth} /> : view === 'regions' ? <RegionsPage onChanged={refreshRegionList} /> : loading ? (
             <div style={{ ...bodyFont(500, 14), textAlign: 'center', padding: 80, color: C.steel }}>載入中...</div>
           ) : (
             <>
