@@ -50,19 +50,39 @@
         margin-bottom: 8px;
       }
       .tb-td {
-        display: block !important;
+        display: flex !important;
+        align-items: baseline;
+        gap: 10px;
         border: none !important;
-        padding: 3px 0 !important;
+        padding: 5px 0 !important;
         max-width: 100% !important;
         word-break: break-word;
         overflow-wrap: anywhere;
+        font-size: 13px !important;
       }
+      /* 每列開頭用 pseudo 元素顯示欄位名稱（透過 data-label） */
+      .tb-td[data-label]::before {
+        content: attr(data-label);
+        flex: 0 0 72px;
+        font-weight: 700;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: #8a8581;
+        text-transform: uppercase;
+        padding-top: 2px;
+      }
+      /* 沒有 data-label 的 cell（例如純按鈕列），不顯示標籤、放置到卡片最下方、滿寬 */
+      .tb-td:not([data-label]) { padding-top: 8px !important; padding-bottom: 2px !important; }
+      /* 讓有 data-label 空值的 cell 仍保留標籤 + "—" 顯示 */
+      .tb-td[data-label]:empty::after { content: "—"; color: #c8c3bd; }
       /* 內層 div 不再需要 max-width 限制 */
       .tb-td > div[style*="max-width"] { max-width: 100% !important; }
+      .tb-td > div { flex: 1 1 auto; min-width: 0; }
+      .tb-td > span, .tb-td > a { flex: 1 1 auto; min-width: 0; }
       /* textarea / input 在卡片裡撐滿 */
-      .tb-td textarea, .tb-td input[type="text"], .tb-td select { width: 100% !important; box-sizing: border-box; }
-      /* 空格子（比如只是用來對齊的）隱藏 */
-      .tb-td:empty { display: none !important; }
+      .tb-td textarea, .tb-td input[type="text"], .tb-td input:not([type]), .tb-td select { width: 100% !important; box-sizing: border-box; flex: 1 1 auto; }
+      /* 真正的空 cell（沒 data-label 也沒內容）直接隱藏 */
+      .tb-td:not([data-label]):empty { display: none !important; }
 
       /* 標題列的品牌字縮小、避免被擠出螢幕 */
       .tb-brand { font-size: 14px !important; }

@@ -70,7 +70,7 @@ const Block = ({ id, num, title, sub, gold, children }) => (
 );
 
 const TH = ({ children }) => <th className="tb-th" style={{ ...font(700, 9), padding: '10px 12px', textAlign: 'left', letterSpacing: '0.1em', textTransform: 'uppercase', color: C.steel, background: C.stone }}>{children}</th>;
-const TD = ({ children, style: s }) => <td className="tb-td" style={{ ...bodyFont(400, 13), padding: '10px 12px', color: C.iron, borderBottom: `1px solid ${C.ash}`, ...s }}>{children}</td>;
+const TD = ({ children, style: s, label }) => <td className="tb-td" data-label={label} style={{ ...bodyFont(400, 13), padding: '10px 12px', color: C.iron, borderBottom: `1px solid ${C.ash}`, ...s }}>{children}</td>;
 const TR = ({ children, onClick }) => <tr style={{ cursor: onClick ? 'pointer' : 'default', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = C.stone} onMouseLeave={e => e.currentTarget.style.background = ''} onClick={onClick}>{children}</tr>;
 
 const ChartTip = ({ active, payload, label }) => {
@@ -1085,10 +1085,10 @@ export default function App() {
                       return (
                         <React.Fragment key={i}>
                           <TR onClick={() => c.notes && setExpanded(expanded === i ? null : i)}>
-                            <TD style={font(700, 13)}>{i + 1}</TD><TD style={{ whiteSpace: 'nowrap' }}>{c.fillMonth}</TD><TD><div style={{ maxWidth: 180, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{c.address}</div></TD>
-                            <TD style={{ fontWeight: 700 }}>{c.customer}</TD><TD>{c.caseType}</TD><TD>{c.budget}</TD><TD>{c.contact}</TD>
-                            <TD><Badge status={c.status} /></TD><TD><Abnormal text={c.abnormal} /></TD>
-                            <TD onClick={e => e.stopPropagation()}>
+                            <TD label="#" style={font(700, 13)}>{i + 1}</TD><TD label="月份" style={{ whiteSpace: 'nowrap' }}>{c.fillMonth}</TD><TD label="地址"><div style={{ maxWidth: 180, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{c.address}</div></TD>
+                            <TD label="業主" style={{ fontWeight: 700 }}>{c.customer}</TD><TD label="類型">{c.caseType}</TD><TD label="預算">{c.budget}</TD><TD label="設計師">{c.contact}</TD>
+                            <TD label="狀態"><Badge status={c.status} /></TD><TD label="異常"><Abnormal text={c.abnormal} /></TD>
+                            <TD label="備註" onClick={e => e.stopPropagation()}>
                               <textarea defaultValue={caseNotes[caseId] || ''} placeholder="備註..."
                                 ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                 onBlur={e => saveCaseNote(caseId, e.target.value)}
@@ -1096,7 +1096,7 @@ export default function App() {
                                 rows={1}
                                 style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'none', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} />
                             </TD>
-                            <TD style={{ ...font(700, 11), color: C.darkGold }}>{c.notes ? (expanded === i ? '▲' : '▼') : ''}</TD>
+                            <TD style={{ ...font(700, 11), color: C.darkGold, textAlign: 'right' }}>{c.notes ? (expanded === i ? '▲ 收合' : '▼ 展開') : ''}</TD>
                           </TR>
                           {expanded === i && c.notes && <tr><td colSpan={11} style={{ ...bodyFont(400, 12), padding: '14px 24px', background: C.warmCream, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{c.notes}</td></tr>}
                         </React.Fragment>
@@ -1128,16 +1128,16 @@ export default function App() {
                       const pn = projectNotes[x.caseNo] || {};
                       return (
                         <TR key={i}>
-                          <TD style={{ ...font(700, 13), color: C.darkGold }}>{x.caseNo}</TD>
-                          <TD><Badge status={x.status} /></TD>
-                          <TD><div style={{ maxWidth: 220, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{x.address}</div></TD>
-                          <TD>{x.supervisor}</TD>
-                          <TD style={font(400, 12)}>{x.startDate}</TD>
-                          <TD style={font(400, 12)}>{x.endDate}</TD>
-                          <TD style={font(400, 12)}>{x.delayDays}</TD>
-                          <TD><Days days={x.remainDays} /></TD>
-                          <TD style={{ fontSize: 12 }}>{x.progress}</TD>
-                          <TD>
+                          <TD label="案號" style={{ ...font(700, 13), color: C.darkGold }}>{x.caseNo}</TD>
+                          <TD label="狀態"><Badge status={x.status} /></TD>
+                          <TD label="地址"><div style={{ maxWidth: 220, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{x.address}</div></TD>
+                          <TD label="工務">{x.supervisor}</TD>
+                          <TD label="開工" style={font(400, 12)}>{x.startDate}</TD>
+                          <TD label="完工" style={font(400, 12)}>{x.endDate}</TD>
+                          <TD label="展延" style={font(400, 12)}>{x.delayDays}</TD>
+                          <TD label="剩餘"><Days days={x.remainDays} /></TD>
+                          <TD label="進度" style={{ fontSize: 12 }}>{x.progress}</TD>
+                          <TD label="備註">
                             <textarea
                               value={noteInputs[x.caseNo] ?? (pn.note || '')}
                               placeholder="備註..."
@@ -1147,7 +1147,7 @@ export default function App() {
                               rows={1}
                               style={{ width: 160, ...bodyFont(400, 12), border: `1px solid ${C.ash}`, borderRadius: 3, padding: '3px 7px', background: C.bone, resize: 'none', minHeight: 26, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} />
                           </TD>
-                          <TD style={{ textAlign: 'center' }}>
+                          <TD label="異常" style={{ textAlign: 'center' }}>
                             <input type="checkbox" checked={!!pn.is_abnormal}
                               onChange={e => saveProjectNote(x.caseNo, noteInputs[x.caseNo] ?? (pn.note || ''), e.target.checked)}
                               style={{ width: 16, height: 16, cursor: 'pointer', accentColor: C.rust }} />
@@ -1197,16 +1197,16 @@ export default function App() {
                             const selStyle = (val) => ({ ...font(600, 11), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 6px', background: val === '已收款' ? C.mossLight : val === '收款異常' ? C.rustLight : C.bone, color: val === '已收款' ? C.moss : val === '收款異常' ? C.rust : C.steel, cursor: 'pointer' });
                             const inputStyle = { width: 150, ...font(600, 13), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone };
                             return <TR key={i}>
-                              <TD style={{ ...font(700, 13), color: C.darkGold }}>{x.caseNo}</TD>
-                              <TD><Badge status={x.status} /></TD>
-                              <TD><div style={{ maxWidth: 160, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{x.address}</div></TD>
-                              <TD>{x.designer}</TD>
-                              <TD style={font(800, 14)}>{x.contractAmount}</TD>
-                              <TD><input type="number" value={get('contract_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'contract_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
-                              <TD><select value={contractStatus} onChange={e => setPaymentDraft(x.caseNo, 'contract_status', e.target.value)} style={selStyle(contractStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
-                              <TD><input type="number" value={get('additional_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'additional_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
-                              <TD><select value={additionalStatus} onChange={e => setPaymentDraft(x.caseNo, 'additional_status', e.target.value)} style={selStyle(additionalStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
-                              <TD><textarea value={get('abnormal_note', '')} placeholder="備註" ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} onChange={e => { setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'none', minHeight: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} /></TD>
+                              <TD label="案號" style={{ ...font(700, 13), color: C.darkGold }}>{x.caseNo}</TD>
+                              <TD label="狀態"><Badge status={x.status} /></TD>
+                              <TD label="地址"><div style={{ maxWidth: 160, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{x.address}</div></TD>
+                              <TD label="設計師">{x.designer}</TD>
+                              <TD label="合約金額" style={font(800, 14)}>{x.contractAmount}</TD>
+                              <TD label="請款(合約)"><input type="number" value={get('contract_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'contract_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
+                              <TD label="合約收款"><select value={contractStatus} onChange={e => setPaymentDraft(x.caseNo, 'contract_status', e.target.value)} style={selStyle(contractStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
+                              <TD label="請款(追加)"><input type="number" value={get('additional_amount', '')} placeholder="0" onChange={e => setPaymentDraft(x.caseNo, 'additional_amount', e.target.value)} onWheel={e => e.target.blur()} style={inputStyle} /></TD>
+                              <TD label="追加收款"><select value={additionalStatus} onChange={e => setPaymentDraft(x.caseNo, 'additional_status', e.target.value)} style={selStyle(additionalStatus)}>{STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}</select></TD>
+                              <TD label="備註"><textarea value={get('abnormal_note', '')} placeholder="備註" ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }} onChange={e => { setPaymentDraft(x.caseNo, 'abnormal_note', e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }} rows={1} style={{ width: 160, ...font(600, 12), border: `1px solid ${isDirty ? C.gold : C.ash}`, borderRadius: 3, padding: '4px 8px', background: isDirty ? C.warmCream : C.bone, resize: 'none', minHeight: 28, lineHeight: 1.4, fontFamily: 'inherit', verticalAlign: 'middle', overflow: 'hidden' }} /></TD>
                               <TD>{isDirty ? <button onClick={() => savePayment(x.caseNo, x.address)} style={{ ...font(700, 11), padding: '4px 12px', borderRadius: 3, border: 'none', cursor: 'pointer', background: C.gold, color: C.iron, whiteSpace: 'nowrap' }}>儲存</button> : <span style={{ ...font(500, 11), color: C.fog }}>已存</span>}</TD>
                             </TR>;
                           })}</tbody>
@@ -1293,32 +1293,34 @@ export default function App() {
                                 const rowBg = s.is_signed ? C.mossLight : undefined;
                                 return (
                                   <TR key={s.id} style={rowBg ? { background: rowBg } : undefined}>
-                                    <TD style={font(700, 13)}>{i + 1}</TD>
-                                    <TD>
+                                    <TD label="#" style={font(700, 13)}>{i + 1}</TD>
+                                    <TD label="簽約">
                                       <input type="checkbox" checked={!!s.is_signed} onChange={() => toggleSignedExpected(s)}
                                         style={{ width: 18, height: 18, cursor: 'pointer', accentColor: C.moss }} />
                                     </TD>
-                                    <TD>
+                                    <TD label="地址">
                                       <div style={{ maxWidth: 240, lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                         {editing
                                           ? <input value={editSignDraft.address} onChange={e => setEditSignDraft(p => ({ ...p, address: e.target.value }))} style={smallInput} />
                                           : <span style={s.is_signed ? { color: C.moss, textDecoration: 'line-through', textDecorationColor: C.moss } : undefined}>{s.address}</span>}
                                       </div>
                                     </TD>
-                                    <TD style={{ ...font(800, 15), color: C.darkGold }}>
+                                    <TD label="報價" style={{ ...font(800, 15), color: C.darkGold }}>
                                       {editing
                                         ? <input value={editSignDraft.amount} onChange={e => setEditSignDraft(p => ({ ...p, amount: e.target.value }))} style={{ ...smallInput, width: 80 }} />
                                         : (s.amount ? `${s.amount}萬` : '—')}
                                     </TD>
-                                    <TD style={font(400, 12)}>
+                                    <TD label="預計簽約日" style={font(400, 12)}>
                                       {editing
                                         ? <input value={editSignDraft.expected_date} onChange={e => setEditSignDraft(p => ({ ...p, expected_date: e.target.value }))} style={{ ...smallInput, width: 90 }} />
                                         : (s.expected_date || '—')}
                                     </TD>
-                                    <TD style={{ color: C.steel, fontSize: 12, maxWidth: 180 }}>
+                                    <TD label="備註" style={{ color: C.steel, fontSize: 12 }}>
+                                      <div style={{ maxWidth: 180, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                                       {editing
                                         ? <input value={editSignDraft.note} onChange={e => setEditSignDraft(p => ({ ...p, note: e.target.value }))} style={smallInput} />
                                         : s.note}
+                                      </div>
                                     </TD>
                                     <TD>
                                       {editing ? (
