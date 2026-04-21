@@ -1,11 +1,23 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
 const { google } = require('googleapis');
 const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// 登入相關端點的 rate limit：15 分鐘 5 次
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, message: '嘗試次數過多，請稍後再試' },
+});
 
 // 日期工具：解析 YYYY/M/D 或 YYYY-M-D，加上 N 工作天（跳過週六日），判斷是否超過
 function parseDate(str) {
@@ -35,13 +47,18 @@ function isOverdue(baseStr, workDays) {
   return today > due;
 }
 
-// Supabase helper
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://obgobetnlecbmypvfnsq.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZ29iZXRubGVjYm15cHZmbnNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMTgwOTEsImV4cCI6MjA5MTc5NDA5MX0.u1sxdWPtGcyGJyKmFIIrmPWVVJ6fZr36DB2sU7rhHRU';
-// service role key：繞過 RLS，僅用於 tb_users（帳號管理）
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZ29iZXRubGVjYm15cHZmbnNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjIxODA5MSwiZXhwIjoyMDkxNzk0MDkxfQ.EDrB8SHLLh5XTHxOeGLao5JFsEf8a-7Q7v-71EmLXWQ';
-const supaHeaders = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
-const supaServiceHeaders = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' };
+// Supabase helper — 所有金鑰都從 env 取得；缺任何一個直接 fail fast
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SERVICE_KEY) {
+  console.error('[startup] 缺少 SUPABASE_URL / SUPABASE_KEY / SUPABASE_SERVICE_KEY，請檢查 .env');
+  process.exit(1);
+}
+// Phase 4 RLS：前端一律走 Express 後端，所以後端直接用 service_role key，
+// 讓 Supabase 繞過 RLS。anon key 保留在 .env 中供未來 Supabase Auth 場景使用。
+const supaHeaders = { apikey: SUPABASE_SERVICE_KEY, Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' };
+const supaServiceHeaders = supaHeaders;
 
 async function supaGetService(table, params = '') {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${params}`, { headers: supaServiceHeaders });
@@ -131,13 +148,45 @@ async function loadRegions() {
     const rows = await supaGet('tb_regions', '?is_active=eq.true&order=sort_order.asc');
     const map = {};
     (Array.isArray(rows) ? rows : []).forEach(r => {
-      map[r.name] = { caseSheet: r.case_sheet || null, workSheet: r.work_sheet || null, caseTab: r.case_tab || '進度統計', weeklySheet: null };
+      map[r.name] = { id: r.id, caseSheet: r.case_sheet || null, workSheet: r.work_sheet || null, caseTab: r.case_tab || '進度統計', weeklySheet: null };
     });
     REGIONS = map;
     console.log(`[regions] 載入 ${Object.keys(REGIONS).length} 個分店`);
   } catch (e) {
     console.error('[regions] 載入失敗:', e.message);
   }
+}
+
+// 依 region 名稱查 id（用於寫入端帶 region_id FK）。回傳 null 表示名稱不存在。
+function regionIdByName(name) {
+  if (!name) return null;
+  const entry = REGIONS[name];
+  return entry ? entry.id : null;
+}
+
+// 把逗號分隔字串（"五股,桃園"）轉成 region_id 陣列，忽略空白與無效名稱
+function regionIdsFromCsv(csv) {
+  if (!csv || typeof csv !== 'string') return [];
+  return csv.split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(name => regionIdByName(name))
+    .filter(Boolean);
+}
+
+// 同步某 user 的 tb_user_regions：刪掉既有、插入新的
+async function syncUserRegions(userId, csv) {
+  await fetch(`${SUPABASE_URL}/rest/v1/tb_user_regions?user_id=eq.${userId}`, {
+    method: 'DELETE', headers: supaServiceHeaders,
+  });
+  const ids = regionIdsFromCsv(csv);
+  if (ids.length === 0) return;
+  const rows = ids.map(region_id => ({ user_id: userId, region_id }));
+  await fetch(`${SUPABASE_URL}/rest/v1/tb_user_regions`, {
+    method: 'POST',
+    headers: { ...supaServiceHeaders, Prefer: 'return=minimal' },
+    body: JSON.stringify(rows),
+  });
 }
 
 app.get('/api/regions', (req, res) => {
@@ -670,7 +719,9 @@ app.get('/api/notes/:region', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
   try {
     const { region, category, content, status = '未處理', meeting_date } = req.body;
-    const data = await supaInsert('tb_weekly_notes', { region, category, content, status, meeting_date: meeting_date || new Date().toISOString().slice(0, 10) });
+    const region_id = regionIdByName(region);
+    if (!region_id) return res.status(400).json({ error: `未知的 region: ${region}` });
+    const data = await supaInsert('tb_weekly_notes', { region, region_id, category, content, status, meeting_date: meeting_date || new Date().toISOString().slice(0, 10) });
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -701,11 +752,13 @@ app.get('/api/paymentrecords/:region', async (req, res) => {
 app.post('/api/paymentrecords', async (req, res) => {
   try {
     const { region, case_no, address, contract_amount, contract_status, additional_amount, additional_status, abnormal_note } = req.body;
+    const region_id = regionIdByName(region);
+    if (!region_id) return res.status(400).json({ error: `未知的 region: ${region}` });
     const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_payment_records?on_conflict=region,case_no`, {
       method: 'POST',
       headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify({
-        region, case_no, address,
+        region, region_id, case_no, address,
         contract_amount: parseInt(contract_amount) || 0,
         contract_status: contract_status || '時間未到',
         additional_amount: parseInt(additional_amount) || 0,
@@ -730,8 +783,10 @@ app.get('/api/expected/:region', async (req, res) => {
 app.post('/api/expected', async (req, res) => {
   try {
     const { region, address, amount, expected_date, note } = req.body;
+    const region_id = regionIdByName(region);
+    if (!region_id) return res.status(400).json({ error: `未知的 region: ${region}` });
     const data = await supaInsert('tb_expected_signs', {
-      region, address: address || '',
+      region, region_id, address: address || '',
       amount: amount || '', expected_date: expected_date || '', note: note || '',
       meeting_date: new Date().toISOString().slice(0, 10),
     });
@@ -759,12 +814,13 @@ app.get('/api/annualtargets/:region', async (req, res) => {
 app.post('/api/annualtargets', async (req, res) => {
   try {
     const { region, year, milestone_revenue, milestone_sign_rate } = req.body;
+    const region_id = regionIdByName(region);
+    if (!region_id) return res.status(400).json({ error: `未知的 region: ${region}` });
     const currentYear = year || new Date().getFullYear();
     const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_annual_targets?on_conflict=region,year`, {
       method: 'POST',
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify({ region, year: currentYear, milestone_revenue: milestone_revenue || 0, milestone_sign_rate: milestone_sign_rate || '', updated_at: new Date().toISOString() }),
+      headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({ region, region_id, year: currentYear, milestone_revenue: milestone_revenue || 0, milestone_sign_rate: milestone_sign_rate || '', updated_at: new Date().toISOString() }),
     });
     res.json(await r.json());
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -789,11 +845,13 @@ app.get('/api/projectnotes/:region', async (req, res) => {
 app.post('/api/projectnotes', async (req, res) => {
   try {
     const { region, case_no, note, is_abnormal } = req.body;
+    const region_id = regionIdByName(region);
+    if (!region_id) return res.status(400).json({ error: `未知的 region: ${region}` });
     // 必須加 ?on_conflict=region,case_no，PostgREST 才能正確做 UPDATE（不是 INSERT）
     const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_project_notes?on_conflict=region,case_no`, {
       method: 'POST',
       headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify({ region, case_no, note: note || '', is_abnormal: !!is_abnormal, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ region, region_id, case_no, note: note || '', is_abnormal: !!is_abnormal, updated_at: new Date().toISOString() }),
     });
     res.json(await r.json());
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -810,25 +868,57 @@ app.get('/api/casenotes/:region', async (req, res) => {
 app.post('/api/casenotes', async (req, res) => {
   try {
     const { region, case_id, note } = req.body;
+    const region_id = regionIdByName(region);
+    if (!region_id) return res.status(400).json({ error: `未知的 region: ${region}` });
     const r = await fetch(`${SUPABASE_URL}/rest/v1/tb_case_notes?on_conflict=region,case_id`, {
       method: 'POST',
       headers: { ...supaHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify({ region, case_id, note: note || '', updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ region, region_id, case_id, note: note || '', updated_at: new Date().toISOString() }),
     });
     res.json(await r.json());
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ===== 帳號登入 API（從 Supabase tb_users 驗證）=====
-app.post('/api/login', async (req, res) => {
+// ===== 帳號登入 API（從 Supabase tb_users 驗證，bcrypt 比對）=====
+app.post('/api/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
-    const users = await supaGetService('tb_users', `?username=eq.${encodeURIComponent(String(username || '').toLowerCase())}`);
-    if (!Array.isArray(users) || !users[0] || users[0].password !== password) {
+    if (!username || !password) {
+      return res.status(400).json({ ok: false, message: '請輸入帳號密碼' });
+    }
+    const users = await supaGetService('tb_users', `?username=eq.${encodeURIComponent(String(username).toLowerCase())}`);
+    const user = Array.isArray(users) ? users[0] : null;
+    if (!user || !user.password_hash) {
       return res.status(401).json({ ok: false, message: '帳號或密碼錯誤' });
     }
-    const { password: _pw, ...info } = users[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ ok: false, message: '帳號或密碼錯誤' });
+    }
+    const { password_hash: _ph, ...info } = user;
     res.json({ ok: true, ...info });
+  } catch (e) { res.status(500).json({ ok: false, message: '伺服器錯誤' }); }
+});
+
+// ===== 自行修改密碼 =====
+app.post('/api/account/password', authLimiter, async (req, res) => {
+  try {
+    const { username, oldPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 4) return res.status(400).json({ ok: false, message: '新密碼至少 4 個字元' });
+    const users = await supaGetService('tb_users', `?username=eq.${encodeURIComponent(String(username || '').toLowerCase())}`);
+    const user = Array.isArray(users) ? users[0] : null;
+    if (!user || !user.password_hash) {
+      return res.status(401).json({ ok: false, message: '目前密碼不正確' });
+    }
+    const match = await bcrypt.compare(oldPassword || '', user.password_hash);
+    if (!match) {
+      return res.status(401).json({ ok: false, message: '目前密碼不正確' });
+    }
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await fetch(`${SUPABASE_URL}/rest/v1/tb_users?id=eq.${user.id}`, {
+      method: 'PATCH', headers: supaServiceHeaders, body: JSON.stringify({ password_hash: newHash }),
+    });
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, message: '伺服器錯誤' }); }
 });
 
@@ -843,9 +933,15 @@ app.get('/api/admin/users', async (req, res) => {
 app.post('/api/admin/users', async (req, res) => {
   try {
     const { username, password, role, region, name } = req.body;
+    if (!password || password.length < 4) return res.status(400).json({ error: '密碼至少 4 個字元' });
+    const password_hash = await bcrypt.hash(password, 10);
     const data = await supaInsertService('tb_users', {
-      username: String(username || '').toLowerCase(), password, role, region: region || null, name,
+      username: String(username || '').toLowerCase(), password_hash, role, region: region || null, name,
     });
+    const created = Array.isArray(data) ? data[0] : data;
+    if (created && created.id) {
+      await syncUserRegions(created.id, region || '');
+    }
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -853,11 +949,17 @@ app.post('/api/admin/users', async (req, res) => {
 app.patch('/api/admin/users/:id', async (req, res) => {
   try {
     const updates = {};
-    if (req.body.password) updates.password = req.body.password;
+    if (req.body.password) {
+      if (req.body.password.length < 4) return res.status(400).json({ error: '密碼至少 4 個字元' });
+      updates.password_hash = await bcrypt.hash(req.body.password, 10);
+    }
     if (req.body.name) updates.name = req.body.name;
     if (req.body.role) updates.role = req.body.role;
     if (req.body.region !== undefined) updates.region = req.body.region;
     const data = await supaPatchService('tb_users', req.params.id, updates);
+    if (req.body.region !== undefined) {
+      await syncUserRegions(req.params.id, req.body.region || '');
+    }
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

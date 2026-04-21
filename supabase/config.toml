@@ -1,0 +1,6 @@
+# Supabase 專案設定
+# 此檔僅用於識別專案，實際的 DB 操作走 Claude Code + Supabase MCP
+# 非 Supabase CLI 的 config
+
+project_id = "obgobetnlecbmypvfnsq"
+project_url = "https://obgobetnlecbmypvfnsq.supabase.co"

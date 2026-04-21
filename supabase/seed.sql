@@ -1,0 +1,12 @@
+-- Idempotent seed data for development / fresh deployments
+--
+-- NOTE: Initial region seed data is embedded in migration 20260420041543_create_tb_regions_and_seed.sql
+-- so a fresh DB that runs migrations will already have the 8 regions.
+--
+-- This file is for ADDITIONAL seed data that should exist in all environments
+-- but is not part of schema migrations (e.g. default statuses, lookup values,
+-- dev-only test users).
+--
+-- Keep every INSERT wrapped with ON CONFLICT DO NOTHING / DO UPDATE to stay idempotent.
+--
+-- Currently empty — will be populated as Phase 1-4 introduces lookup tables.

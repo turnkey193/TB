@@ -18,3 +18,14 @@
 !drive工具/
 !drive工具/drive-explorer/
 !drive工具/drive-explorer/**
+
+# Environment config template（.env 本身仍被忽略）
+!.env.example
+
+# Supabase migrations + schema 文件
+!supabase/
+!supabase/**
+!docs/
+!docs/**
+!scripts/
+!scripts/**
