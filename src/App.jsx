@@ -622,7 +622,7 @@ function Dashboard({ data, onAllDataRefresh }) {
         <Metric label="累積達成率" value={total.totalRate} large />
       </div>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
+      <div className="stack-on-mobile" style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 500px', background: C.bone, borderRadius: 4, padding: 24 }}>
           <div style={{ ...font(700, 11), letterSpacing: '0.08em', textTransform: 'uppercase', color: C.steel, marginBottom: 12 }}>各區業績 vs 目標</div>
           <ResponsiveContainer width="100%" height={280}>
@@ -970,17 +970,17 @@ export default function App() {
 
       {/* ===== HEADER ===== */}
       <header style={{ background: C.iron, position: 'sticky', top: 0, zIndex: 200 }}>
-        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
             {!isMobile && <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'none', border: 'none', color: C.fog, fontSize: 16, cursor: 'pointer', padding: 4, opacity: 0.6 }}>☰</button>}
-            <div style={{ width: 3, height: 20, background: C.gold, borderRadius: 1 }} />
-            <span style={{ ...font(800, isMobile ? 16 : 18), color: C.gold, letterSpacing: '-0.02em' }}>統包先生</span>
+            <div style={{ width: 3, height: 20, background: C.gold, borderRadius: 1, flexShrink: 0 }} />
+            <span className="tb-brand" style={{ ...font(800, isMobile ? 16 : 18), color: C.gold, letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>統包先生</span>
             {!isMobile && <span style={{ ...font(600, 10), color: 'rgba(255,255,255,0.25)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>WEEKLY MEETING</span>}
           </div>
           {isMobile ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)' }}>{new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' })}</span>
-              <button onClick={logout} style={{ ...font(600, 10), padding: '4px 10px', borderRadius: 3, border: `1px solid ${C.ironMid}`, cursor: 'pointer', background: 'none', color: 'rgba(255,255,255,0.35)' }}>登出</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <span className="tb-brand-date" style={{ ...bodyFont(500, 11), color: 'rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }}>{(() => { const d = new Date(); return `${d.getMonth() + 1}/${d.getDate()}`; })()}</span>
+              <button onClick={logout} style={{ ...font(600, 10), padding: '4px 10px', borderRadius: 3, border: `1px solid ${C.ironMid}`, cursor: 'pointer', background: 'none', color: 'rgba(255,255,255,0.35)', whiteSpace: 'nowrap' }}>登出</button>
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1060,7 +1060,7 @@ export default function App() {
                   <Metric label="異常" value={abnormal.length} highlight={abnormal.length > 0} />
                 </div>
                 {(statusChart.length > 0 || typeChart.length > 0) && (
-                  <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+                  <div className="stack-on-mobile" style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
                     {statusChart.length > 0 && (<div style={{ flex: '1 1 300px', background: C.stone, borderRadius: 4, padding: 16 }}>
                       <div style={{ ...font(700, 9), letterSpacing: '0.1em', textTransform: 'uppercase', color: C.steel, marginBottom: 8 }}>狀態分布</div>
                       <ResponsiveContainer width="100%" height={200}>
@@ -1107,7 +1107,7 @@ export default function App() {
 
               {/* 02 工程進度 */}
               <Block id="projects" num="02" title="施工中工程統計" sub="工務服務部">
-                <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <div className="stack-on-mobile" style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', gap: 10, flex: '1 1 400px', flexWrap: 'wrap' }}>
                     <Metric label="施工中" value={working} /><Metric label="待驗收" value={pending} /><Metric label="待開工" value={waiting} />
                     <Metric label="逾期" value={overdue} highlight={overdue > 0} />
@@ -1374,7 +1374,7 @@ export default function App() {
                       <Metric label="累積達成率" value={data.shopData.totalRate} />
                     </div></div>)}
 
-                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
+                  <div className="stack-on-mobile" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 24 }}>
                     {(() => {
                       const yt = data?.yearTarget;
                       const at = annualTarget;

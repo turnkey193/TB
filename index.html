@@ -26,6 +26,19 @@
       .tb-td { padding: 7px 4px !important; font-size: 11px !important; }
       .metric-card > div:last-child { font-size: 20px !important; }
     }
+
+    /* ===== 手機版通用：表格橫向滑動、標題縮小、指定兩欄堆疊 ===== */
+    @media (max-width: 767px) {
+      /* 表格：給最小寬度，父層 overflow:auto 會啟動橫向滑動，避免欄位擠到重疊 */
+      .block-body table { min-width: 620px; }
+
+      /* 標題列的品牌字縮小、避免被擠出螢幕 */
+      .tb-brand { font-size: 14px !important; }
+
+      /* 特定區塊加 stack-on-mobile 會強制上下堆疊 */
+      .stack-on-mobile { flex-direction: column !important; flex-wrap: nowrap !important; }
+      .stack-on-mobile > * { flex: 1 1 auto !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; }
+    }
   </style>
 </head>
 <body>
