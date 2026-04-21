@@ -35,16 +35,13 @@
       /* 表格：給最小寬度，父層 overflow:auto 會啟動橫向滑動，避免欄位擠到重疊 */
       .block-body table { min-width: 760px; border-collapse: collapse; }
 
-      /* 欄位垂直分隔線，讓換行文字不會跟隔壁欄視覺糊成一片 */
+      /* 欄位垂直對齊從上方，讓換行內容不會跟隔壁欄錯位 */
       .tb-th, .tb-td {
-        border-right: 1px solid #e8e4dc;
         vertical-align: top;
-        /* 強制斷行避免長字串溢出到隔壁欄 */
+        /* 長字串在框內任意位置斷行、自然撐高 cell 高度 */
         word-break: break-word;
         overflow-wrap: anywhere;
-        overflow: hidden;
       }
-      .tb-th:last-child, .tb-td:last-child { border-right: none; }
 
       /* 標題列的品牌字縮小、避免被擠出螢幕 */
       .tb-brand { font-size: 14px !important; }
