@@ -7,6 +7,25 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Microsoft JhengHei', 'PingFang TC', sans-serif; background: #f0f2f5; }
+
+    /* ===== 手機版（< 768px）樣式調整：縮小 padding、字體，避免重疊與換行 ===== */
+    @media (max-width: 767px) {
+      .block-header { padding: 12px 14px !important; gap: 10px !important; }
+      .block-body { padding: 16px 12px !important; }
+      .tb-th { padding: 7px 6px !important; font-size: 9px !important; letter-spacing: 0.04em !important; }
+      .tb-td { padding: 8px 6px !important; font-size: 12px !important; }
+      .metric-card { padding: 12px 14px !important; flex: 1 1 140px !important; min-width: 120px !important; }
+      .metric-card > div:last-child { font-size: 22px !important; }
+    }
+
+    /* 更小螢幕（< 480px）再緊一點 */
+    @media (max-width: 479px) {
+      .block-header { padding: 10px 12px !important; gap: 8px !important; }
+      .block-body { padding: 14px 10px !important; }
+      .tb-th { padding: 6px 4px !important; }
+      .tb-td { padding: 7px 4px !important; font-size: 11px !important; }
+      .metric-card > div:last-child { font-size: 20px !important; }
+    }
   </style>
 </head>
 <body>

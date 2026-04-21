@@ -39,7 +39,7 @@ const Badge = ({ status }) => {
   return <span style={{ ...font(700, 10), padding: '3px 10px', borderRadius: 2, background: s.bg, color: s.c, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap', display: 'inline-block' }}>{status}</span>;
 };
 
-const Abnormal = ({ text }) => text ? <span style={{ ...font(700, 9), padding: '3px 8px', borderRadius: 2, background: C.rustLight, color: C.rust, letterSpacing: '0.04em' }}>{text}</span> : null;
+const Abnormal = ({ text }) => text ? <span style={{ ...font(700, 9), padding: '3px 8px', borderRadius: 2, background: C.rustLight, color: C.rust, letterSpacing: '0.04em', whiteSpace: 'nowrap', display: 'inline-block' }}>{text}</span> : null;
 
 const Days = ({ days }) => {
   if (!days || ['完工', '資料不齊全', '還沒開工'].includes(days)) return <span style={{ ...font(500, 13), color: C.fog }}>{days || '—'}</span>;
@@ -59,8 +59,8 @@ const Metric = ({ label, value, highlight, large }) => (
 const Block = ({ id, num, title, sub, gold, children }) => (
   <div id={id} className="block-wrap" style={{ marginBottom: 24, borderRadius: 4, background: C.bone, scrollMarginTop: 64, ...fadeIn }}>
     <div className="block-header" style={{ padding: '18px 28px', background: gold ? `linear-gradient(135deg, ${C.darkGold}, ${C.gold})` : C.iron, display: 'flex', alignItems: 'center', gap: 14, position: 'sticky', top: 56, zIndex: 10, borderRadius: '4px 4px 0 0' }}>
-      {num && <span style={{ ...font(800, 11), color: gold ? C.iron : C.gold, opacity: 0.5, letterSpacing: '0.1em' }}>{num}</span>}
-      <div>
+      {num && <span style={{ ...font(800, 11), color: gold ? C.iron : C.gold, opacity: 0.5, letterSpacing: '0.1em', flexShrink: 0 }}>{num}</span>}
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ ...font(700, 15), color: gold ? C.iron : '#fff', letterSpacing: '-0.01em' }}>{title}</div>
         {sub && <div style={{ ...bodyFont(500, 11), color: gold ? 'rgba(28,27,27,0.5)' : 'rgba(255,255,255,0.35)', marginTop: 2 }}>{sub}</div>}
       </div>
@@ -69,8 +69,8 @@ const Block = ({ id, num, title, sub, gold, children }) => (
   </div>
 );
 
-const TH = ({ children }) => <th style={{ ...font(700, 9), padding: '10px 12px', textAlign: 'left', letterSpacing: '0.1em', textTransform: 'uppercase', color: C.steel, background: C.stone }}>{children}</th>;
-const TD = ({ children, style: s }) => <td style={{ ...bodyFont(400, 13), padding: '10px 12px', color: C.iron, borderBottom: `1px solid ${C.ash}`, ...s }}>{children}</td>;
+const TH = ({ children }) => <th className="tb-th" style={{ ...font(700, 9), padding: '10px 12px', textAlign: 'left', letterSpacing: '0.1em', textTransform: 'uppercase', color: C.steel, background: C.stone }}>{children}</th>;
+const TD = ({ children, style: s }) => <td className="tb-td" style={{ ...bodyFont(400, 13), padding: '10px 12px', color: C.iron, borderBottom: `1px solid ${C.ash}`, ...s }}>{children}</td>;
 const TR = ({ children, onClick }) => <tr style={{ cursor: onClick ? 'pointer' : 'default', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = C.stone} onMouseLeave={e => e.currentTarget.style.background = ''} onClick={onClick}>{children}</tr>;
 
 const ChartTip = ({ active, payload, label }) => {
