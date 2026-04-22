@@ -2,6 +2,9 @@
 *
 .*
 
+# 母資料夾說明（記在 git 裡供參考）
+!CLAUDE.md
+
 # 只允許週會系統需要的檔案
 !.gitignore
 !Dockerfile
@@ -25,6 +28,7 @@
 # Supabase migrations + schema 文件
 !supabase/
 !supabase/**
+supabase/.temp/
 !docs/
 !docs/**
 !scripts/
