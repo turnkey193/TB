@@ -1,35 +1,24 @@
-# 預設忽略所有東西
+# 母資料夾 .gitignore（白名單模式：預設全忽略，再顯式 !xxx 放行）
+# 子專案（如 tb-meeting/、人資薪資打卡系統/）天生就被擋掉，不會進母 git
+# 各子專案有自己的 .git/ 與 .gitignore
+
+# === 預設忽略所有東西 ===
 *
 .*
 
-# 母資料夾說明（記在 git 裡供參考）
+# === 母資料夾層的說明與設定 ===
+!.gitignore
 !CLAUDE.md
 
-# 只允許週會系統需要的檔案
-!.gitignore
-!Dockerfile
-!zbpack.json
-!package.json
-!package-lock.json
-!vite.config.js
-!index.html
-!server.js
-!src/
-!src/**
-
-# Drive Explorer
-!drive工具/
-!drive工具/drive-explorer/
-!drive工具/drive-explorer/**
-
-# Environment config template（.env 本身仍被忽略）
-!.env.example
-
+# === 共用資源（跨子專案使用） ===
 # Supabase migrations + schema 文件
 !supabase/
 !supabase/**
 supabase/.temp/
 !docs/
 !docs/**
-!scripts/
-!scripts/**
+
+# Drive Explorer（特例：目前還沒分離出去，暫時留在母 git）
+!drive工具/
+!drive工具/drive-explorer/
+!drive工具/drive-explorer/**
