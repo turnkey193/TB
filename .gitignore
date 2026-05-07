@@ -23,13 +23,5 @@ supabase/.temp/
 !drive工具/drive-explorer/
 !drive工具/drive-explorer/**
 
-# 週會管理系統（原本計畫做成獨立 git subproject，但 Zeabur GitHub App
-# 權限設定卡住，暫時放回母 git 以子資料夾形式存在。Zeabur build 改用
-# /tb-meeting/Dockerfile 路徑）
-!tb-meeting/
-!tb-meeting/**
-# tb-meeting 內的自動產生物不進 git
-tb-meeting/node_modules/
-tb-meeting/dist/
-tb-meeting/.env
-tb-meeting/.env.local
+# 週會管理系統 tb-meeting/ 已改成獨立子專案 repo (17310a3-png/TB-meeting)
+# 不在母 git 追蹤範圍（天生就被 * 擋掉，這裡不 whitelist）
