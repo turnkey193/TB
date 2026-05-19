@@ -1,0 +1,48 @@
+-- ═════════════════════════════════════════════════════════════
+-- Phase 6c：hr.employees.tb_user_id 回填候選對應
+-- 產生日期：2026-05-14
+--
+-- 用法：跟主管/HR 確認每筆對應後，把要回填的 UNCOMMENT 跑下去
+-- 不確認的就保持 commented out
+-- ═════════════════════════════════════════════════════════════
+
+-- 🟢 高信心（推薦先做）
+-- UPDATE hr.employees SET tb_user_id = '0d1c54fb-e6d7-4199-a71d-27c3d8a9ea5f', updated_at = now()
+--   WHERE id = 6 AND employee_code = 'TBD002';  -- 王聖傑 ↔ tb_users.聖傑 (jason19790115)
+-- UPDATE hr.employees SET tb_user_id = '52bbf6db-201c-47c1-924e-f20541397af2', updated_at = now()
+--   WHERE id = 7 AND employee_code = 'TBM003';  -- 陳逸昇 ↔ tb_users.逸昇 (p780120134)
+
+-- 🟡 中信心（請先跟本人確認）
+-- UPDATE hr.employees SET tb_user_id = '0add47bd-11c7-446e-b8a1-35da452fea33', updated_at = now()
+--   WHERE id = 3 AND employee_code = 'ADM01';   -- 系統管理員 ↔ tb_users.總部 (admin)
+-- UPDATE hr.employees SET tb_user_id = '2c8ff405-6670-4c31-a1c3-6f7b3fc5e7b4', updated_at = now()
+--   WHERE id = 10 AND employee_code = 'TBA006'; -- 李珮如 ↔ tb_users.珮珮 (sweet791013)
+-- UPDATE hr.employees SET tb_user_id = '06d5ea44-615f-4cee-b227-d8740fc4e482', updated_at = now()
+--   WHERE id = 21 AND employee_code = 'TBE022'; -- 葉采鑫 ↔ tb_users.葉子 (w5042264)
+-- UPDATE hr.employees SET tb_user_id = '3dbde876-56e1-46dd-88a0-1eb2ff123dde', updated_at = now()
+--   WHERE id = 5 AND employee_code = 'TBE001';  -- 曾俊豪 ↔ tb_users.阿豪 (jun8659)
+
+-- 🔴 沒對應（這 9 個 tb_users 應該是區經理/業務，不在 hr.employees 表）
+--   - amber       (d6e8dbe8-...)  東門
+--   - johnny      (bf41e643-...)  水湳,烏日
+--   - Willson     (866dceb3-...)  admin
+--   - 建誠         (4f1acdf5-...)  桃園,新竹
+--   - 忠修         (35c198d4-...)  烏日
+--   - 烏日         (b1fbf8be-...)  烏日（地名不是人）
+--   - 燕子         (3beac5a9-...)  admin
+--   - 耿起賢       (79366073-...)  東門
+--   - 阿智         (cca39aac-...)  桃園
+--
+-- 處理方式選項：
+--   A. 不管（這些人未來不用 tb-portal SSO，繼續用 tb-meeting username + password）
+--   B. 把這些人也建進 hr.employees 表（指派 employee_code、role=manager），
+--      然後設 tb_user_id；之後就能用 portal SSO 進 tb-meeting
+
+-- ═════════════════════════════════════════════════════════════
+-- 驗證 query（執行 UPDATE 後跑）
+-- ═════════════════════════════════════════════════════════════
+-- SELECT e.id, e.employee_code, e.full_name, u.id AS tb_user_id, u.username, u.name
+-- FROM hr.employees e
+-- LEFT JOIN public.tb_users u ON u.id = e.tb_user_id
+-- WHERE e.is_active = true AND e.tb_user_id IS NOT NULL
+-- ORDER BY e.employee_code;
