@@ -30,6 +30,33 @@
 
 ---
 
+## 2026-05-20 補丁（critical 漏洞修補）
+
+跨專案審計後追加的最小幅度補洞：
+
+| 項目 | 改動 |
+|---|---|
+| `tb-meeting/server.js` | `/api/admin/*` (10 個 endpoint) 全套 `requireAuth + requireAdmin`；`/api/login` 成功後也 `setSessionCookie`（legacy 登入也產生 cookie）；移除多餘的 `SUPABASE_KEY` 依賴 |
+| `tb-meeting/Dockerfile` | 加 `ENV NODE_ENV=production`（讓 cookie `secure=true`）|
+| `tb-meeting/src/main.jsx` | 加 fetch monkey-patch：same-origin fetch 自動帶 cookie，省去後續 Phase 3b 改 frontend |
+| `tb-meeting/.env.example` | 移除 `SUPABASE_KEY` 註解 |
+
+業務 `/api/*` 仍然沒套 requireAuth（仍是 Phase 3b 範圍），但 monkey-patch 把 frontend 端準備好，Phase 3b 只剩後端逐個套 middleware。
+
+新建：[`docs/schema/SSO_EXCHANGE_CONTRACT.md`](schema/SSO_EXCHANGE_CONTRACT.md) — 給未來新子系統（tb-quotation/tb-cases）SSO 接入用的合約規範。
+
+## 新發現的子系統（不在原 SSO roadmap 內）
+
+| 資料夾 | GitHub | 部署狀態 | Schema |
+|---|---|---|---|
+| `工作管理表小工具/` | `17310a3-png/TB-gantt` | ✅ Zeabur `tb-gantt` 已部署 | （未確認）|
+| `線上報價單/` | `17310a3-png/tb-quotation` | ❌ 未部署 | `quotation`（476 品項已建）|
+| `行銷-案件資料/` | `17310a3-png/tb-cases`（空 repo） | ❌ 未部署 | `cases`（schema 已建、0 筆資料）|
+| `人資薪資打卡系統/` | `17310a3-png/...` | ✅ Zeabur `tb-hr` 已部署 | `hr.*` |
+
+之前 HANDOFF / memory 寫的「tb-gantt 子專案尚未存在」是錯的 — 它就是「工作管理表小工具」。
+之前母 CLAUDE.md 寫的「人資薪資打卡系統 = 空資料夾」也是錯的 — 它就是 tb-hr。
+
 ## 未完成（Phase 3b、4、5）
 
 ### Phase 3b：業務 routes 套 requireAuth（高風險）
