@@ -1,5 +1,5 @@
 -- tb-cases Phase 1.1.1: schema 與基礎設定
--- 設計依據: 行銷-案件資料/DECISIONS_2026-05-19.md
+-- 設計依據: 專案-案件追蹤表/DECISIONS_2026-05-19.md
 --
 -- - 沿用 public.set_updated_at() 既有 trigger function
 -- - 全表 enable RLS、不建任何政策 → anon/authenticated 預設拒絕、service_role 繞過
