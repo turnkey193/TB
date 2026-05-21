@@ -21,7 +21,7 @@
 |---|---|---|---|
 | `tb-meeting/` | `17310a3-png/TB-meeting` | `tb-meeting` | 週會管理 / `public.tb_users`（SSO 已接 Phase 1~3a） |
 | `tb-org-dashboard/` | `17310a3-png/tb-org-dashboard` | `tb-org` | 組織儀表板 / `hr.employees`（SSO 已接） |
-| `人資薪資打卡系統/` | `17310a3-png/...`（待確認） | `tb-hr` | 人資打卡 / `hr.employees`（SSO 已接）⚠️ **資料夾名跟 service name 不一致**，但實質是 tb-hr |
+| `人資薪資打卡系統/` | `17310a3-png/TB-HR` | `tb-hr` | 人資打卡 / `hr.employees`（SSO 已接）⚠️ **資料夾名跟 service name 不一致**，但實質是 tb-hr |
 | `tb-portal/` | `17310a3-png/tb-portal` | `tb-portal` | SSO 統一登入入口 + 權限矩陣 admin / `hr.employees` |
 | `工作管理表小工具/` | `17310a3-png/TB-gantt` | `tb-gantt` | 甘特圖 / Google Sheets ⚠️ **資料夾名跟 service name 不一致** |
 | `drive工具/drive-explorer/` | （在母 git，例外） | `tb-drive` | Google Drive 目錄樹工具 |
@@ -31,7 +31,7 @@
 | 資料夾 | GitHub | Schema | 狀態 |
 |---|---|---|---|
 | `線上報價單/` | `17310a3-png/tb-quotation` | `quotation`（476 品項已有資料）| Phase 0 開發中 |
-| `行銷-案件資料/` | `17310a3-png/tb-cases`（空 repo） | `cases`（schema 已建、主表 0 筆）| Phase 0 完成等用戶 review |
+| `專案-案件追蹤表/` | `17310a3-png/tb-cases` | `cases`（schema 已建、主表 0 筆）| Phase 0 完成、Phase 1.1 schema 已套 |
 
 ### 未版控的工具 / 資料夾
 
